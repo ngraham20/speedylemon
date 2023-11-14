@@ -28,9 +28,16 @@ pub struct GuildwarsContext {
 
 pub fn read_mumble() -> Result<()> {
     let handler = MumbleLinkHandler::new()?;
-    let linked_memory = handler.read().context(format!("unable to read GW2 data from mumble API"))?;
-    println!("{:?}", linked_memory.read_context_into_struct::<GuildwarsContext>());
+    let mumble_data = handler.read().context(format!("unable to read GW2 data from mumble API"))?;
+    let racer_position = mumble_data.avatar;
+    let gw2_data = mumble_data.read_context_into_struct::<GuildwarsContext>();
+    let map_id = gw2_data.map_id;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 }
 
 // fn main() {
