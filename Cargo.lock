@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "anyhow"
+version = "1.0.75"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -48,7 +54,9 @@ dependencies = [
 name = "speedylemon"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "mumblelink_reader",
+ "thiserror",
 ]
 
 [[package]]
