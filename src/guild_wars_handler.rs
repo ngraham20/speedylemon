@@ -32,6 +32,9 @@ pub fn read_mumble() -> Result<()> {
     let racer_position = mumble_data.avatar;
     let gw2_data = mumble_data.read_context_into_struct::<GuildwarsContext>();
     let map_id = gw2_data.map_id;
+    let name = mumble_data.identity.clone();
+    // println!("{:?}", mumble_data);
+    println!("Racer Position: {:?}, Map: {}, Character: {}", racer_position, map_id, name);
     Ok(())
 }
 
@@ -39,12 +42,3 @@ pub fn read_mumble() -> Result<()> {
 mod tests {
     use super::*;
 }
-
-// fn main() {
-//     let handler = MumbleLinkHandler::new().unwrap();
-//     loop {
-//         let linked_memory = handler.read().unwrap();
-//         println!("{:?}", linked_memory.read_context_into_struct::<GuildwarsContext>());
-//         thread::sleep(time::Duration::from_millis(50));
-//     }
-// }
