@@ -4,6 +4,7 @@ mod checkpoint;
 mod course;
 mod speedylemon;
 mod racer;
+mod camera;
 
 fn main() {
     if let Err(err) = speedylemon::run() {
