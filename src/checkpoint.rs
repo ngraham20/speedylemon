@@ -1,53 +1,38 @@
-use std::{fs::OpenOptions, io::Write};
+use std::io::Write;
+use std::fs::File;
 
 use serde::{Deserialize, Serialize};
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Checkpoint {
     #[serde(rename = "STEP")]
-    step: i16,
+    pub step: i16,
     #[serde(rename = "STEPNAME")]
-    stepname: String,
+    pub stepname: Stepname,
     #[serde(rename = "X")]
-    x: f32,
+    pub x: f64,
     #[serde(rename = "Y")]
-    y: f32,
+    pub y: f64,
     #[serde(rename = "Z")]
-    z: f32,
+    pub z: f64,
     #[serde(rename = "RADIUS")]
-    radius:Option<i32>
+    pub radius:Option<i32>
 }
 
-pub fn load_checkpoint_file(file: String) -> Result<Vec<Checkpoint>> {
-    let mut reader = csv::Reader::from_path(file)?;
-    let iter = reader.deserialize();
-    let mut checkpoints = Vec::new();
-
-    for record in iter {
-        let checkpoint = record?;
-        println!("{:?}", checkpoint);
-        checkpoints.push(checkpoint);
-    }
-
-    Ok(checkpoints)
-}
-
-pub fn write_checkpoints_to_file(checkpoints: Vec<Checkpoint>, path: String) -> Result<()> {
-    use std::fs::File;
-
-    let mut writer = csv::Writer::from_writer(vec![]);
-    for checkpoint in checkpoints.iter() {
-        writer.serialize(checkpoint)?;
-    }
-
-    let mut file = File::create(path)?;
-    file.write_all(&writer.into_inner()?)?;
-    Ok(())
+#[derive(Debug, Deserialize, Serialize)]
+pub enum Stepname {
+    #[serde(rename = "start")]
+    START,
+    #[serde(rename = "reset")]
+    RESET,
+    #[serde(rename = "end")]
+    END,
+    #[serde(rename = "*")]
+    CHECKPOINT,
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    
+    use super::*; 
 }

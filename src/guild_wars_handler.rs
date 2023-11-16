@@ -33,7 +33,6 @@ pub fn read_mumble() -> Result<()> {
     let gw2_data = mumble_data.read_context_into_struct::<GuildwarsContext>();
     let map_id = gw2_data.map_id;
     let name = mumble_data.identity.clone();
-    // println!("{:?}", mumble_data);
     println!("Racer Position: {:?}, Map: {}, Character: {}", racer_position, map_id, name);
     Ok(())
 }
