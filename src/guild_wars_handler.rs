@@ -1,7 +1,5 @@
 use mumblelink_reader::mumble_link_handler::MumbleLinkHandler;
 use mumblelink_reader::mumble_link::{MumbleLinkReader, MumbleLinkDataReader};
-use std::{thread, time};
-use std::error::Error;
 use anyhow::{Context, Result};
 
 #[derive(Copy, Clone, Debug)]
@@ -25,6 +23,9 @@ pub struct GuildwarsContext {
     pub process_id: u32,
     pub mount_index: u8,
 }
+
+// TODO: create a singleton shared-state reference struct with the specific required data
+// Other structures that need this data can reference the single object
 
 pub fn read_mumble() -> Result<()> {
     let handler = MumbleLinkHandler::new()?;

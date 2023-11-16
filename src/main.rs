@@ -3,6 +3,7 @@ mod livesplit_handler;
 mod checkpoint;
 mod course;
 mod speedylemon;
+mod racer;
 
 fn main() {
     if let Err(err) = speedylemon::run() {
