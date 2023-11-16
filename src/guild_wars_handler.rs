@@ -1,31 +1,67 @@
 use mumblelink_reader::mumble_link_handler::MumbleLinkHandler;
-use mumblelink_reader::mumble_link::{MumbleLinkReader, MumbleLinkDataReader};
-use anyhow::{Context, Result};
+use mumblelink_reader::mumble_link::{MumbleLinkReader, MumbleLinkDataReader, MumbleLinkData};
+use anyhow::{Context, Result, anyhow};
+
+use super::racer::Racer;
+use super::camera::Camera;
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
-pub struct GuildwarsContext {
-    pub server_address: [u8; 28],
-    pub map_id: u32,
-    pub map_type: u32,
-    pub shard_id: u32,
-    pub instance: u32,
-    pub build_id: u32,
-    pub ui_state: u32,
-    pub compass_width: u16,
-    pub compass_height: u16,
-    pub compass_rotation: f32,
-    pub player_x: f32,
-    pub player_y: f32,
-    pub map_center_x: f32,
-    pub map_center_y: f32,
-    pub map_scale: f32,
-    pub process_id: u32,
-    pub mount_index: u8,
+struct GuildwarsContext {
+    server_address: [u8; 28],
+    map_id: u32,
+    map_type: u32,
+    shard_id: u32,
+    instance: u32,
+    build_id: u32,
+    ui_state: u32,
+    compass_width: u16,
+    compass_height: u16,
+    compass_rotation: f32,
+    player_x: f32,
+    player_y: f32,
+    map_center_x: f32,
+    map_center_y: f32,
+    map_scale: f32,
+    process_id: u32,
+    mount_index: u8,
 }
 
-// TODO: create a singleton shared-state reference struct with the specific required data
-// Other structures that need this data can reference the single object
+pub type Position = [f32; 3];
+
+pub struct GW2Data {
+    handler: MumbleLinkHandler,
+    pub racer: Racer,
+    pub camera: Camera,
+    pub map_id: u32,
+}
+
+impl GW2Data {
+    pub fn new() -> Result<GW2Data> {
+        Ok(GW2Data {
+            handler: MumbleLinkHandler::new()?,
+            racer: Racer::new(),
+            camera: Camera::new(),
+            map_id: 0u32,
+        })
+    }
+    #[cfg(target_family="windows")]
+    pub fn update(&mut self) -> Result<()> {
+        let data = self.handler.read().context(format!("unable to read GW2 data from mumble API"))?;
+        self.racer.position = data.avatar.position;
+        self.camera.position = data.camera.position;
+
+        let gw2_data = data.read_context_into_struct::<GuildwarsContext>();
+
+        self.map_id = gw2_data.map_id;
+        Ok(())
+    }
+
+    #[cfg(target_family="unix")]
+    pub fn update(&mut self) -> Result<()> {
+        Err(anyhow!("Function not implemented for Unix"))
+    }
+}
 
 pub fn read_mumble() -> Result<()> {
     let handler = MumbleLinkHandler::new()?;

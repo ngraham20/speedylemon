@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, Context};
 use super::guild_wars_handler;
 use super::course::Course;
 
@@ -10,16 +10,12 @@ pub fn run() -> Result<()> {
     // main-loop
     // read the mumble data
     // update the racer position
-    // calculate the speed
+    // check if the position is inside the next checkpoint
 
-    // dst = distance.euclidean(_pos, _lastPos)
-    // total_distance = total_distance + dst
-    // velocity = dst * 39.3700787 / timer
 
-    // to calculate speed, the position and a timestamp should be saved together.
-    // the speed is ds/dt, or the change in distance, divided by the change in time.
-
-    guild_wars_handler::read_mumble()?;
+    let mut data = guild_wars_handler::GW2Data::new()?;
+    data.update().context(format!("Failed to update GW2 Data"))?;
+    println!("Name: {}, Racer Position: {:?}, Camera Position: {:?}", &data.racer.name, &data.racer.position, &data.camera.position);
     let course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
     course.export_to_path(String::from("maps/RAEVENCUP/01-development.csv"))?;
     Ok(())
