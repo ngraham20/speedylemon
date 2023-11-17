@@ -19,5 +19,12 @@ pub fn run() -> Result<()> {
     log::debug!("Name: {}, Racer Position: {:?}, Camera Position: {:?}", &data.racer.name, &data.racer.position, &data.camera.position);
     let course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
     course.export_to_path(String::from("maps/RAEVENCUP/01-development.csv"))?;
+
+    loop {
+        data.update().context(format!("Failed to update GW2 Data"))?;
+        let dst = super::util::euclidian_distance(data.racer.position, course.checkpoints[0].point());
+        log::debug!("Distance to first checkpoint: {}", dst);
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
     Ok(())
 }
