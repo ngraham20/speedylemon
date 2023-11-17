@@ -22,3 +22,8 @@ First, instead of re-writing the program or even beginning to add a Rust backend
 
 ## Mumble Interface
 - Mumble Interface for now will only track the racer position
+
+## Debugging
+- Logging is handled with the environment variable `RUST_LOG`. Set it to **error**, **info**, **debug**, or **trace** for each desired log level.
+- Logging for release builds is disabled, so the while during debugging, you may see log messages clutter your console application, these will 
+not be present in the release build. You can see this for yourself by running `cargo run --release`

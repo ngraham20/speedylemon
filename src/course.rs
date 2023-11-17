@@ -2,6 +2,7 @@ use std::{fs::File, io::Write};
 
 use super::checkpoint::{Checkpoint, Stepname};
 use anyhow::Result;
+use log;
 
 /// Course is a series of numbered checkpoints with dedicated Start, Reset, and End checkpoints
 pub struct Course {
@@ -9,14 +10,14 @@ pub struct Course {
 }
 
 impl Course {
-    pub fn from_path(file: String) -> Result<Course> {
-        let mut reader = csv::Reader::from_path(file)?;
+    pub fn from_path(path: String) -> Result<Course> {
+        log::info!("Loading race course from path: {}", path);
+        let mut reader = csv::Reader::from_path(path)?;
         let iter = reader.deserialize();
         let mut checkpoints = Vec::new();
     
         for record in iter {
             let checkpoint: Checkpoint = record?;
-            println!("{:?}", checkpoint);
             checkpoints.push(checkpoint);
 
         }
