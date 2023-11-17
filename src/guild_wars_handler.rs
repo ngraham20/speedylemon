@@ -1,6 +1,8 @@
 use mumblelink_reader::mumble_link_handler::MumbleLinkHandler;
-use mumblelink_reader::mumble_link::{MumbleLinkReader, MumbleLinkDataReader, MumbleLinkData};
+use mumblelink_reader::mumble_link::{MumbleLinkReader, MumbleLinkDataReader};
 use anyhow::{Context, Result};
+use log;
+use serde_json::Value;
 
 use super::racer::Racer;
 use super::camera::Camera;
@@ -52,12 +54,15 @@ impl GW2Data {
     /// requests need to be sent in a certain amount of time.
     #[cfg(target_family="windows")]
     pub fn init(&mut self) -> Result<()> {
+        log::info!("Waiting for Guild Wars 2 Mumble data");
         let mut data = self.handler.read().context(format!("unable to read GW2 data from mumble API"))?;
         while data.name != "Guild Wars 2" {
-            println!("Waiting for Guild Wars 2 Mumble data");
             data = self.handler.read().context(format!("unable to read GW2 data from mumble API"))?;
             std::thread::sleep(std::time::Duration::from_millis(500));
         }
+        log::debug!("{}", &data.identity);
+        let identity: Value = serde_json::from_str(&data.identity)?;
+        self.racer.name = identity["name"].to_string();
         Ok(())
     }
 

@@ -6,9 +6,14 @@ mod speedylemon;
 mod racer;
 mod camera;
 
+use pretty_env_logger;
+use log;
+
 fn main() {
+    pretty_env_logger::init();
+    
     if let Err(err) = speedylemon::run() {
-        eprintln!("Error: {:?}", err);
+        log::error!("Error: {:?}", err);
         std::process::exit(1);
     }
 }
