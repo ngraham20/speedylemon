@@ -14,6 +14,7 @@ pub fn run() -> Result<()> {
 
 
     let mut data = guild_wars_handler::GW2Data::new()?;
+    data.init()?;
     data.update().context(format!("Failed to update GW2 Data"))?;
     println!("Name: {}, Racer Position: {:?}, Camera Position: {:?}", &data.racer.name, &data.racer.position, &data.camera.position);
     let course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;

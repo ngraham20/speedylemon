@@ -16,7 +16,6 @@ impl Course {
     
         for record in iter {
             let checkpoint: Checkpoint = record?;
-            println!("{:?}", checkpoint);
             checkpoints.push(checkpoint);
 
         }
