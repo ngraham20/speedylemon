@@ -4,6 +4,7 @@ use std::fs::File;
 use serde::{Deserialize, Serialize};
 use anyhow::Result;
 
+// TODO: change x, y, z into [f32; 3], and implement serde
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Checkpoint {
     #[serde(rename = "STEP")]
@@ -11,13 +12,19 @@ pub struct Checkpoint {
     #[serde(rename = "STEPNAME")]
     pub stepname: Stepname,
     #[serde(rename = "X")]
-    pub x: f64,
+    pub x: f32,
     #[serde(rename = "Y")]
-    pub y: f64,
+    pub y: f32,
     #[serde(rename = "Z")]
-    pub z: f64,
+    pub z: f32,
     #[serde(rename = "RADIUS")]
     pub radius:Option<i32>
+}
+
+impl Checkpoint {
+    pub fn point(&self) -> [f32; 3] {
+        [self.x, self.y, self.z]
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]

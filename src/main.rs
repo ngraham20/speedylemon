@@ -5,6 +5,7 @@ mod course;
 mod speedylemon;
 mod racer;
 mod camera;
+mod util;
 
 use pretty_env_logger;
 use log;

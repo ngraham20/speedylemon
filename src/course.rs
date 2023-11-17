@@ -26,7 +26,7 @@ impl Course {
         })
     }
     
-    pub fn export_to_path(self, path: String) -> Result<()> {
+    pub fn export_to_path(&self, path: String) -> Result<()> {
         let mut writer = csv::Writer::from_writer(vec![]);
         for checkpoint in self.checkpoints.iter() {
             writer.serialize(checkpoint)?;
