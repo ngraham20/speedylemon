@@ -7,6 +7,7 @@ use anyhow::Result;
 use log;
 
 /// Course is a series of numbered checkpoints with dedicated Start, Reset, and End checkpoints
+#[derive(Clone)]
 pub struct Course {
     pub checkpoints: Vec<Checkpoint>,
     pub reset: Option<Checkpoint>,
@@ -23,8 +24,8 @@ pub enum CourseState {
 
 impl Course {
 
-    pub fn peek_next(&self) -> &Checkpoint {
-        &self.checkpoints[self.current_checkpoint]
+    pub fn peek_next(&self) -> Checkpoint {
+        self.checkpoints[self.current_checkpoint]
     }
 
     pub fn restart(&mut self) {

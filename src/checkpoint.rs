@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use anyhow::Result;
 
 // TODO: change x, y, z into [f32; 3], and implement serde
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 #[serde(default)]
 pub struct Checkpoint {
     #[serde(rename = "STEP")]
@@ -51,7 +51,7 @@ impl Default for Checkpoint {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 pub enum Stepname {
     #[serde(rename = "start")]
     Start,
