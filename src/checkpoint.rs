@@ -6,6 +6,7 @@ use anyhow::Result;
 
 // TODO: change x, y, z into [f32; 3], and implement serde
 #[derive(Debug, Deserialize, Serialize)]
+#[serde(default)]
 pub struct Checkpoint {
     #[serde(rename = "STEP")]
     pub step: i16,
@@ -18,12 +19,35 @@ pub struct Checkpoint {
     #[serde(rename = "Z")]
     pub z: f32,
     #[serde(rename = "RADIUS")]
-    pub radius:Option<i32>
+    pub radius: i32
 }
 
 impl Checkpoint {
+    pub fn new() -> Checkpoint {
+        Checkpoint {
+            step: 0,
+            stepname: Stepname::CHECKPOINT,
+            x: 0f32,
+            y: 0f32,
+            z: 0f32,
+            radius: 15i32,
+        }
+    }
     pub fn point(&self) -> [f32; 3] {
         [self.x, self.y, self.z]
+    }
+}
+
+impl Default for Checkpoint {
+    fn default() -> Checkpoint {
+        Checkpoint {
+            step: 0,
+            stepname: Stepname::CHECKPOINT,
+            x: 0f32,
+            y: 0f32,
+            z: 0f32,
+            radius: 15i32,
+        }
     }
 }
 
