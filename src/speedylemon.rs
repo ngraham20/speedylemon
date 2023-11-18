@@ -2,7 +2,7 @@ use anyhow::{Result, Context};
 use super::guild_wars_handler;
 use super::course::Course;
 use log;
-use device_query::{DeviceQuery, DeviceState, Keycode};
+use device_query::{DeviceQuery, DeviceState, Keycode, DeviceEvents};
 
 pub fn run() -> Result<()> {
     let device_state = DeviceState::new();
@@ -17,7 +17,7 @@ pub fn run() -> Result<()> {
     // check if the position is inside the next checkpoint
 
     let mut data = guild_wars_handler::GW2Data::new()?;
-    data.init()?;
+    // data.init()?;
     data.update().context(format!("Failed to update GW2 Data"))?;
     log::debug!("Name: {}, Racer Position: {:?}, Camera Position: {:?}", &data.racer.name, &data.racer.position, &data.camera.position);
     let mut course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
@@ -33,6 +33,7 @@ pub fn run() -> Result<()> {
         if keys.contains(&Keycode::N) {
             course.collect_checkpoint();
         }
+
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
     log::info!("Terminating program.");
