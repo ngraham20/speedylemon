@@ -26,7 +26,7 @@ impl Checkpoint {
     pub fn new() -> Checkpoint {
         Checkpoint {
             step: 0,
-            stepname: Stepname::CHECKPOINT,
+            stepname: Stepname::Checkpoint,
             x: 0f32,
             y: 0f32,
             z: 0f32,
@@ -42,7 +42,7 @@ impl Default for Checkpoint {
     fn default() -> Checkpoint {
         Checkpoint {
             step: 0,
-            stepname: Stepname::CHECKPOINT,
+            stepname: Stepname::Checkpoint,
             x: 0f32,
             y: 0f32,
             z: 0f32,
@@ -54,13 +54,13 @@ impl Default for Checkpoint {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum Stepname {
     #[serde(rename = "start")]
-    START,
+    Start,
     #[serde(rename = "reset")]
-    RESET,
+    Reset,
     #[serde(rename = "end")]
-    END,
+    End,
     #[serde(rename = "*")]
-    CHECKPOINT,
+    Checkpoint,
 }
 
 #[cfg(test)]
