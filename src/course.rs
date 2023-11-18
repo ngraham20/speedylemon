@@ -13,14 +13,35 @@ pub struct Course {
     pub current_checkpoint: usize,
 }
 
+#[derive(PartialEq)]
+pub enum CourseState {
+    Racing,
+    WaitingToStart,
+    ApproachingFinishLine,
+    Finished,
+}
+
 impl Course {
 
     pub fn peek_next(&self) -> &Checkpoint {
         &self.checkpoints[self.current_checkpoint]
     }
-    pub fn collect_checkpoint(&mut self) {
-        if self.current_checkpoint < self.checkpoints.len() - 1 {
-            self.current_checkpoint += 1;
+
+    pub fn restart(&mut self) {
+        self.current_checkpoint = 0;
+    }
+    pub fn collect_checkpoint(&mut self) -> CourseState {
+        match self.current_checkpoint {
+            _x if _x < self.checkpoints.len() - 2 => {
+                self.current_checkpoint += 1;
+                CourseState::Racing
+            },
+            _x if _x < self.checkpoints.len() - 1 => {
+                self.current_checkpoint += 1;
+                CourseState::ApproachingFinishLine
+            }
+            _x if _x == self.checkpoints.len() - 1 => { CourseState::Finished },
+            _ => { CourseState::Racing }
         }
     }
     pub fn from_path(path: String) -> Result<Course> {
@@ -33,10 +54,10 @@ impl Course {
         for record in iter {
             let checkpoint: Checkpoint = record?;
             match checkpoint.stepname {
-                Stepname::RESET => { reset = Some(checkpoint) },
-                Stepname::CHECKPOINT |
-                Stepname::START |
-                Stepname::END => { checkpoints.push(checkpoint) },
+                Stepname::Reset => { reset = Some(checkpoint) },
+                Stepname::Checkpoint |
+                Stepname::Start |
+                Stepname::End => { checkpoints.push(checkpoint) },
             }
 
         }
