@@ -28,8 +28,9 @@ impl Course {
         self.checkpoints[self.current_checkpoint]
     }
 
-    pub fn restart(&mut self) {
+    pub fn restart(&mut self) -> CourseState {
         self.current_checkpoint = 0;
+        CourseState::WaitingToStart
     }
     pub fn collect_checkpoint(&mut self) -> CourseState {
         match self.current_checkpoint {
