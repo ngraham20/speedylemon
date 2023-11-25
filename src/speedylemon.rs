@@ -1,6 +1,8 @@
 use anyhow::{Result, Context};
-use ratatui::{layout::{Rect, Layout, Direction, Constraint}, widgets::Paragraph, style::Stylize};
+use ratatui::{prelude::*, widgets::*};
 use crate::{course::CourseState, util::euclidian_distance};
+
+use std::time::{Duration, SystemTime, Instant};
 
 use super::guild_wars_handler;
 use super::course::Course;
@@ -63,6 +65,8 @@ pub fn run_tui() -> Result<()> {
     let mut course_state = CourseState::WaitingToStart;
     data.init()?;
     let mut state = ProgramState::Continue;
+    let mut start_time = Instant::now();
+    let mut cp_times: Vec<Duration> = vec![Duration::new(0,0); course.checkpoints.len()];
     while state != ProgramState::Quit {
         data.update().context(format!("Failed to update GW2 Data"))?;
         state = global_input()?;
@@ -73,15 +77,26 @@ pub fn run_tui() -> Result<()> {
 
         let next_checkpoint = course.peek_next();
         let dst = super::util::euclidian_distance(data.racer.position, next_checkpoint.point());
-        let mut cp_text = String::new();
-
+        if let Some(rcp) = course.reset {
+            let reset_dst = super::util::euclidian_distance(data.racer.position, rcp.point());
+            if reset_dst < rcp.radius as f32 {
+                course_state = course.restart();
+                cp_times = vec![Duration::new(0,0); course.checkpoints.len()];
+            }
+        }
+        
         if dst < next_checkpoint.radius as f32 {
+            cp_times[next_checkpoint.step as usize] = start_time.elapsed();
             course_state = course.collect_checkpoint();
         }
+
+        let mut cp_text = String::new();
+
 
         // TODO: Move course state functionality into a function
         if course_state == CourseState::WaitingToStart {
             cp_text = String::from("Waiting for player to cross starting line");
+            start_time = Instant::now();
         } else if course_state == CourseState::ApproachingFinishLine {
             cp_text = format!("Distance to finish line: {}", dst);
         } else if course_state == CourseState::Racing {
@@ -99,11 +114,25 @@ pub fn run_tui() -> Result<()> {
                 .title(format!("Current Checkpoint: {} ", course.current_checkpoint))
                 .borders(Borders::ALL);
             let cpdata = Paragraph::new(cp_text);
+
+            let checkpoints: Vec<ListItem> = course
+                .checkpoints
+                .iter()
+                .map(|&cp| {
+                    ListItem::new(vec![
+                        Line::from("".repeat(layout[1].width as usize)),
+                        Line::from(format!("Checkpoint: {}, Time: {}", cp.step, cp_times[cp.step as usize].as_millis()))
+                    ])
+                }).collect();
+
             f.render_widget(cpdata.clone().block(checkpoint), layout[0]);
+            let checkpoints_list = List::new(checkpoints)
+                .block(Block::default().borders(Borders::ALL).title("Checkpoints"));
+            f.render_widget(checkpoints_list, layout[1]);
 
         })?;
 
-        thread::sleep(Duration::from_millis(50));
+        // thread::sleep(Duration::from_millis(50));
 
     }
 
