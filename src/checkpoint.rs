@@ -4,7 +4,6 @@ use std::fs::File;
 use serde::{Deserialize, Serialize};
 use anyhow::Result;
 
-// TODO: change x, y, z into [f32; 3], and implement serde
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 #[serde(default)]
 pub struct Checkpoint {
