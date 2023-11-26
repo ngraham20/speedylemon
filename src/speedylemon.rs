@@ -19,11 +19,19 @@ pub enum ProgramState {
     RestartCourse,
 }
 
+#[derive(PartialEq, Clone, Copy, Debug)]
+pub enum RaceState {
+    WaitingToStart,
+    Racing,
+    Finished,
+}
+
 pub struct LemonContext {
     pub course: Course,
     pub current_checkpoint: usize,
     pub start_time: Instant,
     pub checkpoint_times: Vec<Duration>,
+    pub race_state: RaceState,
     gw2_data: GW2Data,
 }
 
@@ -37,6 +45,7 @@ impl LemonContext {
             current_checkpoint: 0usize,
             start_time: Instant::now(),
             checkpoint_times: Vec::new(),
+            race_state: RaceState::WaitingToStart,
             gw2_data: data,
         }
     }
@@ -59,15 +68,23 @@ impl LemonContext {
         self.course.checkpoints[self.current_checkpoint]
     }
 
+    fn update_state(&mut self) {
+        self.race_state = match self.current_checkpoint {
+            0 => RaceState::WaitingToStart,
+            cp if cp < self.course.checkpoints.len() => RaceState::Racing ,
+            _ => RaceState::Finished,
+        }
+    }
+
     pub fn collect_checkpoint(&mut self) {
-        if self.current_checkpoint == 0 {
-            self.start_time = Instant::now();
+        if self.race_state == RaceState::Finished {
+            return;
         }
-        if self.current_checkpoint < self.course.checkpoints.len() {
-            // TODO: time for RaceState to be implemented to guard against trying to collect a checkpoint after the race is finished
-            self.record_checkpoint_time();
-            self.current_checkpoint += 1;
+        if self.race_state == RaceState::WaitingToStart {
+            self.start_timer();
         }
+        self.record_checkpoint_time();
+        self.current_checkpoint += 1;
     }
 
     pub fn is_in_current_checkpoint(&self) -> bool {
@@ -169,6 +186,8 @@ pub fn run() -> Result<()> {
         if ctx.is_in_current_checkpoint() {
             ctx.collect_checkpoint();
         }
+
+        ctx.update_state();
 
         terminal.draw(|f| {lemontui::ui(f, &mut ctx)})?;
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());

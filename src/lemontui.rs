@@ -1,8 +1,8 @@
 use crossterm::terminal::{LeaveAlternateScreen, disable_raw_mode, EnterAlternateScreen, enable_raw_mode};
-use std::io;
+use std::{io, time::Duration};
 use ratatui::{prelude::*, widgets::*};
 use anyhow::Result;
-use crate::speedylemon::LemonContext;
+use crate::speedylemon::{LemonContext, RaceState};
 
 pub fn chain_hook() {
     let original_hook = std::panic::take_hook();
@@ -33,35 +33,51 @@ pub fn restore_terminal() -> Result<()> {
     Ok(())
 }
 
-pub fn ui(f: &mut Frame, ctx: &mut LemonContext) {
-    // let cp_text = match ctx.current_checkpoint {
-    //     0 => { String::from("Waiting for player to cross starting line") },
-    //     _idx if _idx > 0 && _idx < ctx.course.index_last_checkpoint() => {format!("Distance to checkpoint {}: {}", ctx.current_checkpoint, ctx.current_cp_distance())},
-    //     _idx if _idx == ctx.course.index_last_checkpoint() => {format!("Distance to finish line: {}", ctx.current_cp_distance())},
-    //     _ => { panic!("Unreachable State") },
-    // };
+trait Timestamp {
+    fn timestamp(&self) -> String;
+}
 
-    let cp_text = match ctx.current_checkpoint {
-        idx if idx < ctx.course.checkpoints.len() => format!("Distance to checkpoint {}: {}", ctx.current_checkpoint, ctx.current_cp_distance()),
-        _ => format!("Race Finished!")
-    };
+impl Timestamp for Duration {
+    fn timestamp(&self) -> String {
+        format!("{:02}:{:02}:{:03}", self.as_secs()/60, self.as_secs()%60, self.subsec_millis())
+    }
+}
+
+pub fn ui(f: &mut Frame, ctx: &mut LemonContext) {
+
+    let debug_data = vec![
+        Line::from(match ctx.current_checkpoint {
+            idx if idx < ctx.course.checkpoints.len() => format!("Distance to checkpoint {}: {}", ctx.current_checkpoint, ctx.current_cp_distance()),
+            _ => format!("Race Finished!") 
+        }),
+        Line::from(format!("Race State: {:?}", ctx.race_state)),
+        Line::from(format!("Time: {}", match ctx.race_state {
+            RaceState::WaitingToStart => Duration::new(0,0).timestamp(),
+            RaceState::Racing => ctx.start_time.elapsed().timestamp(),
+            RaceState::Finished => ctx.checkpoint_times.last().unwrap().timestamp(),
+        })),
+        Line::from(format!("Current checkpoint: {}", ctx.current_checkpoint)),
+    ];
     
     let size = f.size();
     let layout = Layout::default()
-        .constraints([Constraint::Percentage(10), Constraint::Percentage(90)])
+        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
         .split(size);
     let checkpoint = Block::default()
         .title(format!("Current Checkpoint: {} ", ctx.current_checkpoint))
         .borders(Borders::ALL);
-    let cpdata = Paragraph::new(cp_text);
+    let cpdata = Paragraph::new(debug_data);
 
     let times: Vec<ListItem> = ctx.checkpoint_times
         .iter()
         .enumerate()
-        .map(|(idx, _idx)| {
+        .map(|(idx, dur)| {
             ListItem::new(vec![
                 Line::from(""),
-                Line::from(format!("Checkpoint: {}, Time: {}", idx, ctx.checkpoint_times[idx].as_millis()))
+                Line::from(format!("Checkpoint: {}, Time: {}, Delta: {}", idx, dur.timestamp(), match idx {
+                    0 => dur.timestamp(),
+                    _ => dur.saturating_sub(ctx.checkpoint_times[idx-1]).timestamp()
+                })),
             ])
         }).collect();
 
