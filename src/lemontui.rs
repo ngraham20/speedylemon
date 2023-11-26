@@ -55,20 +55,6 @@ pub fn ui(f: &mut Frame, ctx: &mut LemonContext) {
         .borders(Borders::ALL);
     let cpdata = Paragraph::new(cp_text);
 
-    // let checkpoints: Vec<ListItem> = ctx.course
-    //     .checkpoints
-    //     .iter()
-    //     .map(|&cp| {
-    //         let linetext = match ctx.checkpoint_times.len() {
-    //             0 => format!(""),
-    //             _ => format!("Checkpoint: {}, Time: {}", cp.step, ctx.checkpoint_times[cp.step as usize].as_millis()),
-    //         };
-    //         ListItem::new(vec![
-    //             Line::from("".repeat(layout[1].width as usize)),
-    //             Line::from(linetext)
-    //         ])
-    //     }).collect();
-
     let times: Vec<ListItem> = ctx.checkpoint_times
         .iter()
         .enumerate()
