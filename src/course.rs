@@ -2,7 +2,7 @@ use std::{fs::File, io::Write};
 
 use crate::checkpoint::Stepname;
 
-use super::checkpoint::Checkpoint;
+use crate::checkpoint::Checkpoint;
 use anyhow::Result;
 use log;
 
@@ -11,7 +11,6 @@ use log;
 pub struct Course {
     pub checkpoints: Vec<Checkpoint>,
     pub reset: Option<Checkpoint>,
-    pub current_checkpoint: usize,
 }
 
 #[derive(PartialEq)]
@@ -24,28 +23,17 @@ pub enum CourseState {
 
 impl Course {
 
-    pub fn peek_next(&self) -> Checkpoint {
-        self.checkpoints[self.current_checkpoint]
+    pub fn index_last_checkpoint(&self) -> usize {
+        self.checkpoints.len() - 1
     }
 
-    pub fn restart(&mut self) -> CourseState {
-        self.current_checkpoint = 0;
-        CourseState::WaitingToStart
-    }
-    pub fn collect_checkpoint(&mut self) -> CourseState {
-        match self.current_checkpoint {
-            _x if _x < self.checkpoints.len() - 2 => {
-                self.current_checkpoint += 1;
-                CourseState::Racing
-            },
-            _x if _x < self.checkpoints.len() - 1 => {
-                self.current_checkpoint += 1;
-                CourseState::ApproachingFinishLine
-            }
-            _x if _x == self.checkpoints.len() - 1 => { CourseState::Finished },
-            _ => { CourseState::Racing }
+    pub fn new() -> Course {
+        Course {
+            checkpoints: Vec::new(),
+            reset: None,
         }
     }
+
     pub fn from_path(path: String) -> Result<Course> {
         log::info!("Loading race course from path: {}", path);
         let mut reader = csv::Reader::from_path(path)?;
@@ -67,7 +55,6 @@ impl Course {
         Ok(Course {
             checkpoints: checkpoints,
             reset: reset,
-            current_checkpoint: 0usize,
         })
     }
     
