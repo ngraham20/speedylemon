@@ -1,20 +1,120 @@
 use anyhow::{Result, Context};
-use ratatui::{prelude::*, widgets::*};
-use crate::{course::CourseState, util::euclidian_distance};
+use crate::{util::euclidian_distance, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui};
 
-use std::time::{Duration, SystemTime, Instant};
+use std::time::{Duration, Instant};
 
-use super::guild_wars_handler;
-use super::course::Course;
+use crate::guild_wars_handler;
+use crate::course::Course;
 use log;
 use device_query::{DeviceQuery, DeviceState, Keycode};
-use enigo::*;
+
+use std::thread;
 
 #[derive(PartialEq)]
 pub enum ProgramState {
     Quit,
     Continue,
     RestartCourse,
+}
+
+pub struct LemonContext {
+    pub course: Course,
+    pub current_checkpoint: usize,
+    pub start_time: Instant,
+    pub checkpoint_times: Vec<Duration>,
+    gw2_data: GW2Data,
+}
+
+impl LemonContext {
+
+    // ----- PUBLIC METHODS -----
+
+    pub fn new(data: GW2Data) -> LemonContext {
+        LemonContext {
+            course: Course::new(),
+            current_checkpoint: 0usize,
+            start_time: Instant::now(),
+            checkpoint_times: Vec::new(),
+            gw2_data: data,
+        }
+    }
+
+    pub fn init_gw2_data(&mut self) -> Result<()> {
+        self.gw2_data.init()?;
+        Ok(())
+    }
+
+    pub fn start_timer(&mut self) {
+        self.start_time = Instant::now()
+    }
+
+    pub fn restart_course(&mut self) {
+        self.current_checkpoint = 0;
+        self.clear_checkpoint_times();
+    }
+
+    pub fn peek_current_checkpoint(&self) -> Checkpoint {
+        self.course.checkpoints[self.current_checkpoint]
+    }
+
+    pub fn collect_checkpoint(&mut self) {
+        if self.current_checkpoint == 0 {
+            self.start_time = Instant::now();
+        }
+        if self.current_checkpoint < self.course.checkpoints.len() {
+            // TODO: time for RaceState to be implemented to guard against trying to collect a checkpoint after the race is finished
+            self.record_checkpoint_time();
+            self.current_checkpoint += 1;
+        }
+    }
+
+    pub fn is_in_current_checkpoint(&self) -> bool {
+        if self.current_checkpoint < self.course.checkpoints.len() {
+            if self.current_cp_distance() < self.peek_current_checkpoint().radius as f32 {
+                return true
+            }
+        }
+        
+        false
+    }
+
+    pub fn is_in_reset_checkpoint(&self) -> bool {
+        if let (Some(dst), Some(cp)) = (self.reset_cp_distance(), self.course.reset) {
+            if dst < cp.radius as f32 {
+                return true
+            }
+        }
+
+        false
+    }
+
+    pub fn current_cp_distance(&self) -> f32 {
+        let checkpoint = &self.course.checkpoints[self.current_checkpoint];
+        euclidian_distance(&self.gw2_data.racer.position, &checkpoint.point())
+    }
+
+    pub fn reset_cp_distance(&self) -> Option<f32> {
+        if let Some(reset) = &self.course.reset {
+            return Some(euclidian_distance(&self.gw2_data.racer.position, &reset.point()))
+        }
+
+        None
+    }
+
+    pub fn update_gw2_data(&mut self) -> Result<()> {
+        self.gw2_data.update()?;
+        Ok(())
+    }
+
+    // ----- PRIVATE METHODS -----
+
+    fn record_checkpoint_time(&mut self) {
+        self.checkpoint_times.push(self.start_time.elapsed())
+    }
+
+    fn clear_checkpoint_times(&mut self) {
+        self.checkpoint_times = Vec::new();
+    }
 }
 
 pub struct State {
@@ -38,178 +138,31 @@ pub fn global_input() -> Result<ProgramState> {
     Ok(ProgramState::Continue)
 }
 
-pub fn run_tui() -> Result<()> {
+pub fn run() -> Result<()> {
+    let mut terminal = lemontui::init_terminal()?;
+    let mut ctx = LemonContext::new(guild_wars_handler::GW2Data::new()?);
+    ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
+    ctx.init_gw2_data()?;
 
-    use std::{io, thread, time::Duration};
-    use ratatui::{
-        backend::CrosstermBackend,
-        widgets::{Widget, Block, Borders},
-        layout::{Layout, Constraint, Direction},
-        Terminal
-    };
-    use crossterm::{
-        event::{DisableMouseCapture, EnableMouseCapture},
-        execute,
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    };
+    let state = ProgramState::Continue;
 
-    // setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-    let mut data = guild_wars_handler::GW2Data::new()?;
-    let mut course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
-    let mut course_state = CourseState::WaitingToStart;
-    data.init()?;
-    let mut state = ProgramState::Continue;
-    let mut start_time = Instant::now();
-    let mut cp_times: Vec<Duration> = vec![Duration::new(0,0); course.checkpoints.len()];
     while state != ProgramState::Quit {
-        data.update().context(format!("Failed to update GW2 Data"))?;
-        state = global_input()?;
+        ctx.update_gw2_data().context(format!("Failed to update GW2 Data"))?;
 
-        if state == ProgramState::RestartCourse {
-            course_state = course.restart();
-        }
-
-        let next_checkpoint = course.peek_next();
-        let dst = super::util::euclidian_distance(data.racer.position, next_checkpoint.point());
-        if let Some(rcp) = course.reset {
-            let reset_dst = super::util::euclidian_distance(data.racer.position, rcp.point());
-            if reset_dst < rcp.radius as f32 {
-                course_state = course.restart();
-                cp_times = vec![Duration::new(0,0); course.checkpoints.len()];
-            }
+        // restart course if needed
+        if ctx.is_in_reset_checkpoint() {
+            ctx.restart_course();
         }
         
-        if dst < next_checkpoint.radius as f32 {
-            cp_times[next_checkpoint.step as usize] = start_time.elapsed();
-            course_state = course.collect_checkpoint();
+        // collect checkpoint if needed
+        if ctx.is_in_current_checkpoint() {
+            ctx.collect_checkpoint();
         }
 
-        let mut cp_text = String::new();
-
-
-        // TODO: Move course state functionality into a function
-        if course_state == CourseState::WaitingToStart {
-            cp_text = String::from("Waiting for player to cross starting line");
-            start_time = Instant::now();
-        } else if course_state == CourseState::ApproachingFinishLine {
-            cp_text = format!("Distance to finish line: {}", dst);
-        } else if course_state == CourseState::Racing {
-            cp_text = format!("Distance to checkpoint {}: {}", course.current_checkpoint, dst);
-        } else if course_state == CourseState::Finished {
-            cp_text = format!("Race Finished!");
-        }
-
-        terminal.draw(|f| {
-            let size = f.size();
-            let layout = Layout::default()
-                .constraints([Constraint::Percentage(10), Constraint::Percentage(90)])
-                .split(size);
-            let checkpoint = Block::default()
-                .title(format!("Current Checkpoint: {} ", course.current_checkpoint))
-                .borders(Borders::ALL);
-            let cpdata = Paragraph::new(cp_text);
-
-            let checkpoints: Vec<ListItem> = course
-                .checkpoints
-                .iter()
-                .map(|&cp| {
-                    ListItem::new(vec![
-                        Line::from("".repeat(layout[1].width as usize)),
-                        Line::from(format!("Checkpoint: {}, Time: {}", cp.step, cp_times[cp.step as usize].as_millis()))
-                    ])
-                }).collect();
-
-            f.render_widget(cpdata.clone().block(checkpoint), layout[0]);
-            let checkpoints_list = List::new(checkpoints)
-                .block(Block::default().borders(Borders::ALL).title("Checkpoints"));
-            f.render_widget(checkpoints_list, layout[1]);
-
-        })?;
-
-        // thread::sleep(Duration::from_millis(50));
-
+        terminal.draw(|f| {lemontui::ui(f, &mut ctx)})?;
+        thread::sleep(Duration::from_millis(500));
     }
 
-    // restore terminal
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
-    Ok(())
-}
-
-pub fn run() -> Result<()> {
-
-    // load checkpoint file from command argument or tui
-    // get live mumble api data
-    // as a base level functionality, output to the console when the next checkpoint is reached
-
-    // main-loop
-    // read the mumble data
-    // update the racer position
-    // check if the position is inside the next checkpoint
-
-
-    // state can be maintained with multiple structs, each of which simply has `.update()` called on it.
-    // the struct's internal state can be handled from within.
-    // this state may be exported if sending messages between structs is necessary.
-
-    let mut data = guild_wars_handler::GW2Data::new()?;
-    data.init()?;
-    data.update().context(format!("Failed to update GW2 Data"))?;
-    log::debug!("Name: {}, Racer Position: {:?}, Camera Position: {:?}", &data.racer.name, &data.racer.position, &data.camera.position);
-    let mut course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
-    course.export_to_path(String::from("maps/RAEVENCUP/01-development.csv"))?;
-
-    let mut state = ProgramState::Continue;
-    let mut course_state = CourseState::WaitingToStart;
-    let mut enigo = Enigo::new();
-    while state != ProgramState::Quit {
-        data.update().context(format!("Failed to update GW2 Data"))?;
-        let next_checkpoint = course.peek_next();
-        let dst = super::util::euclidian_distance(data.racer.position, next_checkpoint.point());
-        if let Some(reset) = &course.reset {
-            let restart_dst = euclidian_distance(data.racer.position, reset.point());
-            if restart_dst < reset.radius as f32 {
-                course.restart();
-                enigo.key_down(Key::K);
-                std::thread::sleep(std::time::Duration::from_millis(50));
-                enigo.key_up(Key::K);
-    
-            }
-        }
-        if dst < next_checkpoint.radius as f32 {
-            course_state = course.collect_checkpoint();
-            // TODO: make a Livesplit struct with `split` and `reset` keys, then just call a function for split and reset
-            enigo.key_down(Key::L);
-            std::thread::sleep(std::time::Duration::from_millis(50));
-            enigo.key_up(Key::L);
-        }
-
-        // TODO: Move course state functionality into a function
-        if course_state == CourseState::WaitingToStart {
-            log::debug!("Waiting for player to cross starting line")
-        } else if course_state == CourseState::ApproachingFinishLine {
-            log::debug!("Distance to finish line: {}", dst);
-        } else if course_state == CourseState::Racing {
-            log::debug!("Distance to checkpoint {}: {}", course.current_checkpoint, dst);
-        } else if course_state == CourseState::Finished {
-            log::debug!("Race Finished!");
-            break;
-        }
-        state = global_input()?;
-    }
-
-    log::info!("Terminating program.");
-    std::thread::sleep(std::time::Duration::from_secs(1));
+    lemontui::restore_terminal()?;
     Ok(())
 }

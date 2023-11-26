@@ -14,7 +14,7 @@ use log;
 fn main() {
     pretty_env_logger::init();
 
-    if let Err(err) = speedylemon::run_tui() {
+    if let Err(err) = speedylemon::run() {
         log::error!("Error: {:?}", err);
         std::process::exit(1);
     }
