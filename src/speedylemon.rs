@@ -1,8 +1,9 @@
 use anyhow::{Result, Context};
 use crossterm::event::{Event, self, KeyEventKind, KeyCode};
-use crate::{util::euclidian_distance, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui};
+use itertools::Itertools;
+use crate::{util::{euclidian_distance, self}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui};
 
-use std::time::{Duration, Instant};
+use std::{time::{Duration, Instant}, collections::{VecDeque, vec_deque, HashMap}};
 use crossbeam_channel::{unbounded, bounded, Receiver, select, tick};
 
 use crate::guild_wars_handler;
@@ -26,12 +27,29 @@ pub enum RaceState {
     Finished,
 }
 
+#[derive(PartialEq, Clone, Copy)]
+pub struct TimePosition {
+    time: Instant,
+    position: [f32; 3],
+}
+
+impl TimePosition {
+    pub fn new() -> TimePosition {
+        TimePosition { 
+            time: Instant::now(),
+            position: [0f32; 3],
+        }
+    }
+}
+
 pub struct LemonContext {
     pub course: Course,
     pub current_checkpoint: usize,
     pub start_time: Instant,
     pub checkpoint_times: Vec<Duration>,
     pub race_state: RaceState,
+    pub positions: (TimePosition, TimePosition),
+    pub velocity_queue: VecDeque<f32>,
     gw2_data: GW2Data,
 }
 
@@ -46,6 +64,8 @@ impl LemonContext {
             start_time: Instant::now(),
             checkpoint_times: Vec::new(),
             race_state: RaceState::WaitingToStart,
+            positions: (TimePosition::new(), TimePosition::new()),
+            velocity_queue: VecDeque::from(vec![0f32]),
             gw2_data: data,
         }
     }
@@ -122,7 +142,40 @@ impl LemonContext {
 
     pub fn update_gw2_data(&mut self) -> Result<()> {
         self.gw2_data.update()?;
+        self.positions.0 = self.positions.1;
+        self.positions.1 = TimePosition {
+            time: Instant::now(),
+            position: self.gw2_data.racer.position,
+        };
+        self.velocity_queue.push_back(self.velocity());
+        if self.velocity_queue.len() > 100 {
+            self.velocity_queue.pop_front();
+        }
         Ok(())
+    }
+
+    pub fn mode_velocity(&self) -> i32 {
+        let mut occurrences = HashMap::new();
+        for &val in self.velocity_queue.iter() {
+            *occurrences.entry(val as i32).or_insert(0) += 1;
+        }
+        occurrences.into_iter().max_by_key(|&(_, count)| count).map(|(val, _)| val).expect("Cannot compute the mode of zero numbers")
+    }
+
+    pub fn average_velocity(&self) -> i32 {
+        let sum: f32 = self.velocity_queue.iter().sum();
+        (sum / (self.velocity_queue.len() as f32).round()) as i32
+    }
+
+    pub fn median_velocity(&self) -> f32 {
+        let sorted: VecDeque<&f32> = self.velocity_queue.iter().sorted_by(|&a, &b| a.partial_cmp(b).unwrap()).collect();
+        let mid = sorted.len() / 2;
+        *sorted[mid]
+    }
+
+    pub fn velocity(&self) -> f32 {
+        let duration = self.positions.1.time.duration_since(self.positions.0.time);
+        util::euclidian_distance(&self.positions.0.position, &self.positions.1.position) * 39.3700787 * 60.0 / (duration.as_millis() as f32)
     }
 
     // ----- PRIVATE METHODS -----
@@ -163,14 +216,11 @@ fn ctrl_channel() -> Result<Receiver<ProgramState>> {
 }
 
 pub fn run() -> Result<()> {
-    // let ctrl_c_events = ctrl_channel()?;
-    // let ticks = tick(Duration::from_secs(1));
-
     let mut terminal = lemontui::init_terminal()?;
     let mut ctx = LemonContext::new(guild_wars_handler::GW2Data::new()?);
     ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
     ctx.init_gw2_data()?;
-    let tick_rate = Duration::from_millis(5);
+    let tick_rate = Duration::from_millis(10);
 
     let mut state = ProgramState::Continue;
     let mut last_tick = Instant::now();
