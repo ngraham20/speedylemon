@@ -1,7 +1,9 @@
 use anyhow::{Result, Context};
+use crossterm::event::{Event, self, KeyEventKind, KeyCode};
 use crate::{util::euclidian_distance, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui};
 
 use std::time::{Duration, Instant};
+use crossbeam_channel::{unbounded, bounded, Receiver, select, tick};
 
 use crate::guild_wars_handler;
 use crate::course::Course;
@@ -10,7 +12,7 @@ use device_query::{DeviceQuery, DeviceState, Keycode};
 
 use std::thread;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum ProgramState {
     Quit,
     Continue,
@@ -117,10 +119,6 @@ impl LemonContext {
     }
 }
 
-pub struct State {
-    program: ProgramState,
-}
-
 pub fn global_input() -> Result<ProgramState> {
     let device_state = DeviceState::new();
 
@@ -138,14 +136,27 @@ pub fn global_input() -> Result<ProgramState> {
     Ok(ProgramState::Continue)
 }
 
+fn ctrl_channel() -> Result<Receiver<ProgramState>> {
+    let (sender, receiver) = bounded(100);
+    ctrlc::set_handler(move || {
+        let _ = sender.send(ProgramState::Quit);
+    })?;
+
+    Ok(receiver)
+}
+
 pub fn run() -> Result<()> {
+    // let ctrl_c_events = ctrl_channel()?;
+    // let ticks = tick(Duration::from_secs(1));
+
     let mut terminal = lemontui::init_terminal()?;
     let mut ctx = LemonContext::new(guild_wars_handler::GW2Data::new()?);
     ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
     ctx.init_gw2_data()?;
+    let tick_rate = Duration::from_millis(5);
 
-    let state = ProgramState::Continue;
-
+    let mut state = ProgramState::Continue;
+    let mut last_tick = Instant::now();
     while state != ProgramState::Quit {
         ctx.update_gw2_data().context(format!("Failed to update GW2 Data"))?;
 
@@ -160,7 +171,20 @@ pub fn run() -> Result<()> {
         }
 
         terminal.draw(|f| {lemontui::ui(f, &mut ctx)})?;
-        thread::sleep(Duration::from_millis(500));
+        let timeout = tick_rate.saturating_sub(last_tick.elapsed());
+        if crossterm::event::poll(timeout)? {
+            if let Event::Key(key) = event::read()? {
+                if key.kind == KeyEventKind::Press {
+                    match key.code {
+                        KeyCode::Char('p') => state = ProgramState::Quit,
+                        _ => {}
+                    }
+                }
+            }
+        }
+        if last_tick.elapsed() >= tick_rate {
+            last_tick = Instant::now();
+        }
     }
 
     lemontui::restore_terminal()?;
