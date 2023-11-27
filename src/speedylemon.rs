@@ -49,7 +49,9 @@ pub struct LemonContext {
     pub checkpoint_times: Vec<Duration>,
     pub race_state: RaceState,
     pub positions: (TimePosition, TimePosition),
-    pub velocity_queue: VecDeque<f32>,
+    // pub velocity_queue: VecDeque<f32>,
+    pub distance_queue: VecDeque<f32>,
+    pub time_queue: VecDeque<u128>,
     gw2_data: GW2Data,
 }
 
@@ -65,7 +67,9 @@ impl LemonContext {
             checkpoint_times: Vec::new(),
             race_state: RaceState::WaitingToStart,
             positions: (TimePosition::new(), TimePosition::new()),
-            velocity_queue: VecDeque::from(vec![0f32]),
+            // velocity_queue: VecDeque::from(vec![0f32, 0f32]),
+            distance_queue: VecDeque::from(vec![0f32, 0f32]),
+            time_queue: VecDeque::from(vec![0u128, 0u128]),
             gw2_data: data,
         }
     }
@@ -147,35 +151,75 @@ impl LemonContext {
             time: Instant::now(),
             position: self.gw2_data.racer.position,
         };
-        self.velocity_queue.push_back(self.velocity());
-        if self.velocity_queue.len() > 100 {
-            self.velocity_queue.pop_front();
+        // self.velocity_queue.push_back(self.velocity());
+        self.distance_queue.push_back(util::euclidian_distance(&self.positions.0.position, &self.positions.1.position));
+        self.time_queue.push_back(self.positions.1.time.duration_since(self.positions.0.time).as_millis());
+        // if self.velocity_queue.len() > 5 {
+        //     self.velocity_queue.pop_front();
+        // }
+        if self.distance_queue.len() > 5 {
+            self.distance_queue.pop_front();
+        }
+        if self.time_queue.len() > 10 {
+            self.time_queue.pop_front();
         }
         Ok(())
     }
 
-    pub fn mode_velocity(&self) -> i32 {
-        let mut occurrences = HashMap::new();
-        for &val in self.velocity_queue.iter() {
-            *occurrences.entry(val as i32).or_insert(0) += 1;
-        }
-        occurrences.into_iter().max_by_key(|&(_, count)| count).map(|(val, _)| val).expect("Cannot compute the mode of zero numbers")
-    }
+    // pub fn mode_velocity(&self) -> i32 {
+    //     let mut occurrences = HashMap::new();
+    //     for &val in self.velocity_queue.iter() {
+    //         *occurrences.entry(val as i32).or_insert(0) += 1;
+    //     }
+    //     occurrences.into_iter().max_by_key(|&(_, count)| count).map(|(val, _)| val).expect("Cannot compute the mode of zero numbers")
+    // }
 
-    pub fn average_velocity(&self) -> i32 {
-        let sum: f32 = self.velocity_queue.iter().sum();
-        (sum / (self.velocity_queue.len() as f32).round()) as i32
-    }
+    // pub fn average_velocity(&self) -> i32 {
+    //     let sum: f32 = self.velocity_queue.iter().sum();
+    //     (sum / (self.velocity_queue.len() as f32).round()) as i32
+    // }
 
-    pub fn median_velocity(&self) -> f32 {
-        let sorted: VecDeque<&f32> = self.velocity_queue.iter().sorted_by(|&a, &b| a.partial_cmp(b).unwrap()).collect();
-        let mid = sorted.len() / 2;
-        *sorted[mid]
-    }
+    // pub fn median_velocity(&self) -> f32 {
+    //     let sorted: VecDeque<&f32> = self.velocity_queue.iter().sorted_by(|&a, &b| a.partial_cmp(b).unwrap()).collect();
+    //     let mid = sorted.len() / 2;
+    //     *sorted[mid]
+    // }
+
+    // pub fn max_velocity(&self) -> i32 {
+    //     let max = self.velocity_queue.iter().max_by(|&a, &b| a.partial_cmp(b).unwrap()).unwrap();
+    //     *max as i32
+    // }
 
     pub fn velocity(&self) -> f32 {
-        let duration = self.positions.1.time.duration_since(self.positions.0.time);
-        util::euclidian_distance(&self.positions.0.position, &self.positions.1.position) * 39.3700787 * 60.0 / (duration.as_millis() as f32)
+        let duration = self.time_per_poll();
+
+        let distance = util::euclidian_distance(&self.positions.0.position, &self.positions.1.position);
+        // distance * 100000f32 / (duration.as_millis() as f32)
+        distance * 39.3700787 * 20.0 / (duration as f32)
+    }
+
+    pub fn filtered_velocity(&self) -> f32 {
+        let duration = self.filtered_time();
+        let distance = self.filtered_distance();
+        // distance * 100000f32 / (duration as f32)
+        distance * 800.0 / (duration as f32)
+    }
+
+    pub fn filtered_distance(&self) -> f32 {
+        *self.distance_queue.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap()
+    }
+
+    pub fn filtered_time(&self) -> u128 {
+        *self.time_queue.iter().max().unwrap()
+    }
+
+    pub fn dist_per_poll(&self) -> f32 {
+        util::euclidian_distance(&self.positions.0.position, &self.positions.1.position)
+    }
+
+    pub fn time_per_poll(&self) -> u128 {
+        self.positions.1.time.duration_since(self.positions.0.time).as_millis()
+        // Duration::from_millis(14).as_millis()
     }
 
     // ----- PRIVATE METHODS -----
