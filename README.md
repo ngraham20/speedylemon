@@ -1,29 +1,39 @@
-# speedylemon
+# SpeedyLemon
+**speedy** /ˈspēdē/ : moving quickly  
+**lemon [informal]** /ˈlemən/ : a person or thing, especially an automobile, regarded as unsatisfactory, dissappointing, or feeble
+
 Designed off of https://github.com/killer415tv/gw2_speedometer as a base
 
-The original speedometer is purely designed for Windows (with good reason, as Windows is the target platform for Guild Wars 2). However, as Proton works well and even seems to outperform Windows, making the speedometer cross-platform may be desired.
+## Why the re-write?
+The original speedometer written in python and is fairly complex. It could use a bit of a tune-up and code re-organization so that new features can more easily be added. Time for Rust!
 
-The codebase is also fairly complex, and I hope to simplify or at least re-organize it, as well as re-write parts of it in Rust.
+## Features
+### Display racer speed
+The racer's speed is displayed for you to understand how your racing is actually affecting your speed. Did you hit a bump and it felt like you lost some speed? Maybe you did! Now you'll know for sure.
 
-Rust crate as an example: https://crates.io/crates/mumblelink_reader
+### Track checkpoint times and splits
+The split times are the original reason I decided to take on this project. It's extremely helpful to know how long each individual checkpoint took you to complete, because maybe that 00:02 seconds that you're trying to make up are all coming from one checkpoint, and you don't have to perfect the whole track yet!
 
-Memory Mapping:
-https://www.youtube.com/watch?v=8hVLcyBkSXY&ab_channel=ChrisKanich
+This idea comes straight from [LiveSplit](http://livesplit.org/), a tool that **speedrunners** use to keep track of individual segments of a run and not just the final time.
 
-## First, Though
-First, instead of re-writing the program or even beginning to add a Rust backend, I'm just going to
-1. Read the data from the GW2 Mumble API
-2. Read the checkpoint file into memory
-3. Have Livesplit auto-split upon crossing a checkpoint
+### Record and upload racer personal best lap times to https://beetlerank.com
+What kind of tracker would this be if you couldn't tell if you beat your best time? When you achieve a new best time, that time is uploaded straight to **beetlerank** to immortalize your achievement for the world to see!
 
-## Keeping Track of Checkpoints
-- Checkpoints contained in a vec
-- When crossing the next checkpoint, pop it and split
+Beetlerank keeps track of a **huge** amount of data, thanks to the work of the original speedometer's creator, [killer514tv](https://github.com/killer415tv0). Seriously, go donate a coffee to that guy, his work's incredible.
 
-## Mumble Interface
-- Mumble Interface for now will only track the racer position
+## How does this even work?
+### Keeping track of checkpoints
+The **checkpoints** that the speedometer keeps track of are not tied to the ones that exist in Guild Wars 2. Instead, the speedometer keeps track of its own checkpoints and simply tests whether the player's position is near the next checkpoint. This means that not only can we keep track of lap times for ArenaNet's in-game races, but it means we can make our own and still record lap times!
+
+### Mumble interface
+The Mumble Link API is typically designed to allow proximity-chat for use in [Mumble](https://www.mumble.info/).
+This data includes things like the camera and player positions, which we are using to calculate the player's speed instead. 
+
+## Will this get me banned from Guild Wars 2?
+Nope! This is **not a mod**! The Mumble API is information freely given by Guild Wars 2, and it is designed to be used in external programs, so no need to fret!
 
 ## Debugging
-- Logging is handled with the environment variable `RUST_LOG`. Set it to **error**, **info**, **debug**, or **trace** for each desired log level.
-- Logging for release builds is disabled, so the while during debugging, you may see log messages clutter your console application, these will 
+Logging is handled with the environment variable `RUST_LOG`. Set it to **error**, **info**, **debug**, or **trace** for each desired log level.
+
+Logging for release builds is disabled, so the while during debugging, you may see log messages clutter your console application, these will 
 not be present in the release build. You can see this for yourself by running `cargo run --release`
