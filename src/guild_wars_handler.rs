@@ -94,8 +94,3 @@ impl GW2Data {
         Err(anyhow!("Function not implemented for Unix"))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-}

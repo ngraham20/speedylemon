@@ -1,5 +1,4 @@
 mod guild_wars_handler;
-mod livesplit_handler;
 mod checkpoint;
 mod course;
 mod speedylemon;

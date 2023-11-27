@@ -1,23 +1,16 @@
 use anyhow::{Result, Context};
 use crossterm::event::{Event, self, KeyEventKind, KeyCode};
-use itertools::Itertools;
 use crate::{util::{euclidian_distance, self}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui};
 
-use std::{time::{Duration, Instant}, collections::{VecDeque, vec_deque, HashMap}};
-use crossbeam_channel::{unbounded, bounded, Receiver, select, tick};
+use std::{time::{Duration, Instant}, collections::VecDeque};
 
 use crate::guild_wars_handler;
 use crate::course::Course;
-use log;
-use device_query::{DeviceQuery, DeviceState, Keycode};
-
-use std::thread;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ProgramState {
     Quit,
     Continue,
-    RestartCourse,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -48,8 +41,10 @@ pub struct LemonContext {
     pub start_time: Instant,
     pub checkpoint_times: Vec<Duration>,
     pub race_state: RaceState,
-    pub positions: (TimePosition, TimePosition),
-    pub velocity_queue: VecDeque<f32>,
+
+    positions: (TimePosition, TimePosition),
+    distance_queue: VecDeque<f32>,
+    time_queue: VecDeque<u128>,
     gw2_data: GW2Data,
 }
 
@@ -65,7 +60,8 @@ impl LemonContext {
             checkpoint_times: Vec::new(),
             race_state: RaceState::WaitingToStart,
             positions: (TimePosition::new(), TimePosition::new()),
-            velocity_queue: VecDeque::from(vec![0f32]),
+            distance_queue: VecDeque::from(vec![0f32, 0f32]),
+            time_queue: VecDeque::from(vec![0u128, 0u128]),
             gw2_data: data,
         }
     }
@@ -140,45 +136,57 @@ impl LemonContext {
         None
     }
 
-    pub fn update_gw2_data(&mut self) -> Result<()> {
+    pub fn update(&mut self) -> Result<()> {
         self.gw2_data.update()?;
         self.positions.0 = self.positions.1;
         self.positions.1 = TimePosition {
             time: Instant::now(),
             position: self.gw2_data.racer.position,
         };
-        self.velocity_queue.push_back(self.velocity());
-        if self.velocity_queue.len() > 100 {
-            self.velocity_queue.pop_front();
+        self.distance_queue.push_back(self.dist_per_poll());
+        self.time_queue.push_back(self.time_per_poll());
+        if self.distance_queue.len() > 5 {
+            self.distance_queue.pop_front();
+        }
+        if self.time_queue.len() > 10 {
+            self.time_queue.pop_front();
         }
         Ok(())
     }
 
-    pub fn mode_velocity(&self) -> i32 {
-        let mut occurrences = HashMap::new();
-        for &val in self.velocity_queue.iter() {
-            *occurrences.entry(val as i32).or_insert(0) += 1;
-        }
-        occurrences.into_iter().max_by_key(|&(_, count)| count).map(|(val, _)| val).expect("Cannot compute the mode of zero numbers")
-    }
-
-    pub fn average_velocity(&self) -> i32 {
-        let sum: f32 = self.velocity_queue.iter().sum();
-        (sum / (self.velocity_queue.len() as f32).round()) as i32
-    }
-
-    pub fn median_velocity(&self) -> f32 {
-        let sorted: VecDeque<&f32> = self.velocity_queue.iter().sorted_by(|&a, &b| a.partial_cmp(b).unwrap()).collect();
-        let mid = sorted.len() / 2;
-        *sorted[mid]
-    }
-
-    pub fn velocity(&self) -> f32 {
-        let duration = self.positions.1.time.duration_since(self.positions.0.time);
-        util::euclidian_distance(&self.positions.0.position, &self.positions.1.position) * 39.3700787 * 60.0 / (duration.as_millis() as f32)
+    /// Calculate the velocity based on the filtered distance and time
+    /// 
+    /// ## Constraining the velocity
+    /// When boosting, 11430 is the maximum speed measured when boosting but not drifting
+    /// 
+    /// Set that speed to 100, so 11430/100 = 114.3
+    /// 
+    /// 100000 / 114.3 = 874.89 achieves the numbers we want
+    /// 
+    /// Alternatively, 100000 / 115.45 = 866.18 will make the max speed 137 when drifting, which matches the speedometer
+    pub fn filtered_velocity(&self) -> i32 {
+        let duration = self.filtered_time();
+        let distance = self.filtered_distance();
+        (distance * 866.18 / (duration as f32)) as i32
     }
 
     // ----- PRIVATE METHODS -----
+
+    fn filtered_distance(&self) -> f32 {
+        *self.distance_queue.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap()
+    }
+
+    fn filtered_time(&self) -> u128 {
+        *self.time_queue.iter().max().unwrap()
+    }
+
+    fn dist_per_poll(&self) -> f32 {
+        util::euclidian_distance(&self.positions.0.position, &self.positions.1.position)
+    }
+
+    fn time_per_poll(&self) -> u128 {
+        self.positions.1.time.duration_since(self.positions.0.time).as_millis()
+    }
 
     fn record_checkpoint_time(&mut self) {
         self.checkpoint_times.push(self.start_time.elapsed())
@@ -189,43 +197,17 @@ impl LemonContext {
     }
 }
 
-pub fn global_input() -> Result<ProgramState> {
-    let device_state = DeviceState::new();
-
-    let keys = device_state.get_keys();
-    // log::debug!("All keys currently down: {:?}", keys);
-
-    // if P: quit the program
-    if keys.contains(&Keycode::P) {
-        return Ok(ProgramState::Quit)
-    }
-    if keys.contains(&Keycode::R) {
-        return Ok(ProgramState::RestartCourse)
-    }
-    
-    Ok(ProgramState::Continue)
-}
-
-fn ctrl_channel() -> Result<Receiver<ProgramState>> {
-    let (sender, receiver) = bounded(100);
-    ctrlc::set_handler(move || {
-        let _ = sender.send(ProgramState::Quit);
-    })?;
-
-    Ok(receiver)
-}
-
 pub fn run() -> Result<()> {
     let mut terminal = lemontui::init_terminal()?;
     let mut ctx = LemonContext::new(guild_wars_handler::GW2Data::new()?);
-    ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
+    ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA GENDARRAN.csv"))?;
     ctx.init_gw2_data()?;
     let tick_rate = Duration::from_millis(10);
 
     let mut state = ProgramState::Continue;
     let mut last_tick = Instant::now();
     while state != ProgramState::Quit {
-        ctx.update_gw2_data().context(format!("Failed to update GW2 Data"))?;
+        ctx.update().context(format!("Failed to update SpeedyLemon Context Object"))?;
 
         // restart course if needed
         if ctx.is_in_reset_checkpoint() {

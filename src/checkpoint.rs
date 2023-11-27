@@ -1,8 +1,4 @@
-use std::io::Write;
-use std::fs::File;
-
 use serde::{Deserialize, Serialize};
-use anyhow::Result;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 #[serde(default)]
@@ -22,7 +18,7 @@ pub struct Checkpoint {
 }
 
 impl Checkpoint {
-    pub fn new() -> Checkpoint {
+    pub fn _new() -> Checkpoint {
         Checkpoint {
             step: 0,
             stepname: Stepname::Checkpoint,
@@ -60,9 +56,4 @@ pub enum Stepname {
     End,
     #[serde(rename = "*")]
     Checkpoint,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*; 
 }

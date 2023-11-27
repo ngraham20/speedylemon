@@ -57,15 +57,12 @@ pub fn ui(f: &mut Frame, ctx: &mut LemonContext) {
             RaceState::Finished => ctx.checkpoint_times.last().unwrap().timestamp(),
         })),
         Line::from(format!("Current checkpoint: {}", ctx.current_checkpoint)),
-        Line::from(format!("Average Velocity: {}", ctx.average_velocity())),
-        Line::from(format!("Median Velocity: {}", ctx.median_velocity())),
-        Line::from(format!("Mode Velocity: {}", ctx.mode_velocity())),
-        Line::from(format!("True Velocity: {}", ctx.velocity())),
+        Line::from(format!("Velocity: {}", ctx.filtered_velocity())),
     ];
     
     let size = f.size();
     let layout = Layout::default()
-        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+        .constraints([Constraint::Percentage(20), Constraint::Percentage(80)])
         .split(size);
     let checkpoint = Block::default()
         .title(format!("Current Checkpoint: {} ", ctx.current_checkpoint))

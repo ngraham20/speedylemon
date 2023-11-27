@@ -13,20 +13,7 @@ pub struct Course {
     pub reset: Option<Checkpoint>,
 }
 
-#[derive(PartialEq)]
-pub enum CourseState {
-    Racing,
-    WaitingToStart,
-    ApproachingFinishLine,
-    Finished,
-}
-
 impl Course {
-
-    pub fn index_last_checkpoint(&self) -> usize {
-        self.checkpoints.len() - 1
-    }
-
     pub fn new() -> Course {
         Course {
             checkpoints: Vec::new(),
@@ -58,7 +45,7 @@ impl Course {
         })
     }
     
-    pub fn export_to_path(&self, path: String) -> Result<()> {
+    pub fn _export_to_path(&self, path: String) -> Result<()> {
         let mut writer = csv::Writer::from_writer(vec![]);
 
         if let Some(cp) = &self.reset {
