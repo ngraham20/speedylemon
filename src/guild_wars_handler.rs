@@ -91,6 +91,11 @@ impl GW2Data {
 
     #[cfg(target_family="unix")]
     pub fn update(&mut self) -> Result<()> {
-        Err(anyhow!("Function not implemented for Unix"))
+        Ok(())
+    }
+
+    #[cfg(target_family="unix")]
+    pub fn init(&mut self) -> Result<()> {
+        Ok(())
     }
 }
