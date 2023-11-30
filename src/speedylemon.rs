@@ -173,7 +173,7 @@ impl LemonContext {
     // ----- PRIVATE METHODS -----
 
     fn filtered_distance(&self) -> f32 {
-        *self.distance_queue.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap()
+        *self.distance_queue.iter().max_by(|&a, &b| a.partial_cmp(b).unwrap()).unwrap()
     }
 
     fn filtered_time(&self) -> u128 {
