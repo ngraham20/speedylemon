@@ -20,7 +20,11 @@
     devShells.${system}.default = pkgs.mkShell {
       packages = [
         toolchain
+        pkgs.xorg.libX11.dev
+        pkgs.pkg-config
+        pkgs.rust-analyzer-unwrapped
       ];
+      RUST_SRC_PATH = "${toolchain}/lib/rustlib/src/rust/library";
     };
   };
 }
