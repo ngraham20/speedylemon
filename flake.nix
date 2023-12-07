@@ -1,5 +1,5 @@
 {
-  description = "A devShell example";
+  description = "Rust Environment";
 
   inputs = {
     nixpkgs.url      = "github:NixOS/nixpkgs/nixos-unstable";
@@ -18,6 +18,7 @@
       with pkgs;
       {
         devShells.default = mkShell {
+          name = "speedylemon";
           buildInputs = [
             pkgs.xorg.libX11.dev
             pkgs.pkg-config
