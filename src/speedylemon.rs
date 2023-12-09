@@ -1,6 +1,6 @@
 use anyhow::{Result, Context};
 use crossterm::event::{Event, self, KeyEventKind, KeyCode};
-use crate::{util::{euclidian_distance, self}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui};
+use crate::{util::{euclidian_distance, self}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::{RaceLogEntry, RaceLog}};
 
 use std::{time::{Duration, Instant}, collections::VecDeque};
 
@@ -42,7 +42,7 @@ pub struct LemonContext {
     pub checkpoint_times: Vec<Duration>,
     pub race_state: RaceState,
 
-    positions: (TimePosition, TimePosition),
+    events: (TimePosition, TimePosition),
     distance_queue: VecDeque<f32>,
     time_queue: VecDeque<u128>,
     gw2_data: GW2Data,
@@ -59,11 +59,21 @@ impl LemonContext {
             start_time: Instant::now(),
             checkpoint_times: Vec::new(),
             race_state: RaceState::WaitingToStart,
-            positions: (TimePosition::new(), TimePosition::new()),
+            events: (TimePosition::new(), TimePosition::new()),
             distance_queue: VecDeque::from(vec![0f32, 0f32]),
             time_queue: VecDeque::from(vec![0u128, 0u128]),
             gw2_data: data,
         }
+    }
+
+    pub fn x(&self) -> f32 {
+        self.gw2_data.racer.position[0]
+    }
+    pub fn y(&self) -> f32 {
+        self.gw2_data.racer.position[1]
+    }
+    pub fn z(&self) -> f32 {
+        self.gw2_data.racer.position[2]
     }
 
     pub fn init_gw2_data(&mut self) -> Result<()> {
@@ -138,8 +148,8 @@ impl LemonContext {
 
     pub fn update(&mut self) -> Result<()> {
         self.gw2_data.update()?;
-        self.positions.0 = self.positions.1;
-        self.positions.1 = TimePosition {
+        self.events.0 = self.events.1;
+        self.events.1 = TimePosition {
             time: Instant::now(),
             position: self.gw2_data.racer.position,
         };
@@ -181,11 +191,11 @@ impl LemonContext {
     }
 
     fn dist_per_poll(&self) -> f32 {
-        util::euclidian_distance(&self.positions.0.position, &self.positions.1.position)
+        util::euclidian_distance(&self.events.0.position, &self.events.1.position)
     }
 
     fn time_per_poll(&self) -> u128 {
-        self.positions.1.time.duration_since(self.positions.0.time).as_millis()
+        self.events.1.time.duration_since(self.events.0.time).as_millis()
     }
 
     fn record_checkpoint_time(&mut self) {
@@ -203,9 +213,13 @@ pub fn run() -> Result<()> {
     ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA GENDARRAN.csv"))?;
     ctx.init_gw2_data()?;
     let tick_rate = Duration::from_millis(10);
+    let log_delta = Duration::from_millis(30);
 
     let mut state = ProgramState::Continue;
     let mut last_tick = Instant::now();
+    let mut last_log = Instant::now();
+    let mut race_log: Vec<RaceLogEntry> = Vec::new();
+    let mut old_racestate: RaceState;
     while state != ProgramState::Quit {
         ctx.update().context(format!("Failed to update SpeedyLemon Context Object"))?;
 
@@ -219,9 +233,21 @@ pub fn run() -> Result<()> {
             ctx.collect_checkpoint();
         }
 
+        old_racestate = ctx.race_state;
         ctx.update_state();
 
+        // trigger events if the state has changed
+        if ctx.race_state != old_racestate {
+            match ctx.race_state {
+                RaceState::Finished => {
+                    race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.name))).context("Failed to export race log")?;
+                },
+                _ => {},
+            }
+        }
+
         terminal.draw(|f| {lemontui::ui(f, &mut ctx)})?;
+
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
@@ -235,6 +261,20 @@ pub fn run() -> Result<()> {
         }
         if last_tick.elapsed() >= tick_rate {
             last_tick = Instant::now();
+        }
+        if last_log.elapsed() >= log_delta {
+            last_log = Instant::now();
+            race_log.push(RaceLogEntry {
+                x: ctx.x(),
+                y: ctx.y(),
+                z: ctx.z(),
+                speed: ctx.filtered_velocity() as f32,
+                cam_angle: 0.0,
+                beetle_angle: 0.0,
+                timestamp: ctx.start_time.elapsed().as_millis() as f64,
+                acceleration: 0.0,
+                map_angle: 0.0,
+            });
         }
     }
 

@@ -65,7 +65,7 @@ pub fn ui(f: &mut Frame, ctx: &mut LemonContext) {
         .constraints([Constraint::Percentage(20), Constraint::Percentage(80)])
         .split(size);
     let checkpoint = Block::default()
-        .title(format!("Current Checkpoint: {} ", ctx.current_checkpoint))
+        .title(format!("{} Current Checkpoint: {} ", ctx.course.name, ctx.current_checkpoint))
         .borders(Borders::ALL);
     let cpdata = Paragraph::new(debug_data);
 

@@ -9,6 +9,7 @@ use log;
 /// Course is a series of numbered checkpoints with dedicated Start, Reset, and End checkpoints
 #[derive(Clone)]
 pub struct Course {
+    pub name: String,
     pub checkpoints: Vec<Checkpoint>,
     pub reset: Option<Checkpoint>,
 }
@@ -16,6 +17,7 @@ pub struct Course {
 impl Course {
     pub fn new() -> Course {
         Course {
+            name: String::new(),
             checkpoints: Vec::new(),
             reset: None,
         }
@@ -23,7 +25,9 @@ impl Course {
 
     pub fn from_path(path: String) -> Result<Course> {
         log::info!("Loading race course from path: {}", path);
-        let mut reader = csv::Reader::from_path(path)?;
+        let course_name = std::path::Path::new(&path).file_stem().unwrap().to_str().unwrap();
+
+        let mut reader = csv::Reader::from_path(&path)?;
         let iter = reader.deserialize();
         let mut checkpoints = Vec::new();
         let mut reset: Option<Checkpoint> = None;
@@ -40,6 +44,7 @@ impl Course {
         }
         checkpoints.sort_by(|a, b| a.step.partial_cmp(&b.step).unwrap());
         Ok(Course {
+            name: String::from(course_name),
             checkpoints: checkpoints,
             reset: reset,
         })
