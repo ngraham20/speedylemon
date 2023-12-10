@@ -1,6 +1,6 @@
-use anyhow::{Result, Context};
-use crossterm::event::{Event, self, KeyEventKind, KeyCode};
-use crate::{util::{euclidian_distance, self}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::{RaceLogEntry, RaceLog}};
+use anyhow::{Result, Context, anyhow};
+use crossterm::event::{self, Event, KeyEventKind, KeyCode};
+use crate::{util::euclidian_distance, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::{RaceLogEntry, RaceLog}};
 
 use std::{time::{Duration, Instant}, collections::VecDeque, fs::{create_dir_all, File}, path::Path, io::Write};
 
@@ -79,6 +79,32 @@ impl LemonContext {
         }
         let mut file = File::create(path).context("Failed to create splits file")?;
         file.write_all(&writer.into_inner()?)?;
+        Ok(())
+    }
+
+    fn load_splits(path: String) -> Result<Vec<u128>> {
+        log::info!("Importing checkpoint splits from {}", path);
+        let mut reader = csv::Reader::from_path(&path)?;
+        let iter = reader.deserialize();
+        let mut splits: Vec<u128> = Vec::new();
+        for record in iter {
+            let split: u128 = record?;
+            splits.push(split);
+        }
+        Ok(splits)
+    }
+
+    pub fn save_best_splits(&self, path: String) -> Result<()> {
+        let old_best = Self::load_splits(path)?;
+        let splits: Vec<u128> = self.checkpoint_times[1..].iter().enumerate()
+            .map(|(idx, split)| split.saturating_sub(self.checkpoint_times[idx-1]).as_millis()).collect();
+
+        if old_best.len() != splits.len() {
+            return Err(anyhow!("Split lengths are not equal"))
+        }
+
+        let zipped = old_best.iter().zip(splits.iter());
+        let final_splits: Vec<u128> = zipped.map(|(old, new)| std::cmp::max(*old, *new)).collect();
         Ok(())
     }
 
@@ -207,7 +233,7 @@ impl LemonContext {
     }
 
     fn dist_per_poll(&self) -> f32 {
-        util::euclidian_distance(&self.events.0.position, &self.events.1.position)
+        euclidian_distance(&self.events.0.position, &self.events.1.position)
     }
 
     fn time_per_poll(&self) -> u128 {
