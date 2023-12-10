@@ -2,7 +2,7 @@ use anyhow::{Result, Context};
 use crossterm::event::{Event, self, KeyEventKind, KeyCode};
 use crate::{util::{euclidian_distance, self}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::{RaceLogEntry, RaceLog}};
 
-use std::{time::{Duration, Instant}, collections::VecDeque};
+use std::{time::{Duration, Instant}, collections::VecDeque, fs::{create_dir_all, File}, path::Path, io::Write};
 
 use crate::guild_wars_handler;
 use crate::course::Course;
@@ -64,6 +64,21 @@ impl LemonContext {
             time_queue: VecDeque::from(vec![0u128, 0u128]),
             gw2_data: data,
         }
+    }
+
+    pub fn save_splits(&self, path: String) -> Result<()> {
+        log::info!("Exporting checkpoint splits to {}", path);
+        create_dir_all(Path::new(&path).parent().unwrap()).context("Failed to create splits directory")?;
+        let mut writer = csv::Writer::from_path(path)?;
+        writer.write_record(&["CHECKPOINT", "MILLIS"])?;
+        for (idx, split) in self.checkpoint_times.iter().enumerate() {
+            writer.serialize((idx, match idx {
+                0 => split.as_millis(),
+                _ => split.saturating_sub(self.checkpoint_times[idx-1]).as_millis(),
+            }))?;
+        }
+        writer.flush()?;
+        Ok(())
     }
 
     pub fn x(&self) -> f32 {
@@ -241,6 +256,7 @@ pub fn run() -> Result<()> {
             match ctx.race_state {
                 RaceState::Finished => {
                     race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.name))).context("Failed to export race log")?;
+                    ctx.save_splits(String::from(format!("./dev/{}-splits.csv", ctx.course.name))).context("Failed to export splits")?;
                 },
                 _ => {},
             }
