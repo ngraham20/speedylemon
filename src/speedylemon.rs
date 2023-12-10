@@ -69,15 +69,16 @@ impl LemonContext {
     pub fn save_splits(&self, path: String) -> Result<()> {
         log::info!("Exporting checkpoint splits to {}", path);
         create_dir_all(Path::new(&path).parent().unwrap()).context("Failed to create splits directory")?;
-        let mut writer = csv::Writer::from_path(path)?;
-        writer.write_record(&["CHECKPOINT", "MILLIS"])?;
+        
+        let mut writer = csv::Writer::from_writer(vec![]);
         for (idx, split) in self.checkpoint_times.iter().enumerate() {
-            writer.serialize((idx, match idx {
-                0 => split.as_millis(),
-                _ => split.saturating_sub(self.checkpoint_times[idx-1]).as_millis(),
-            }))?;
+            match idx {
+                0 => {},
+                _ => writer.serialize(split.saturating_sub(self.checkpoint_times[idx-1]).as_millis())?
+            };
         }
-        writer.flush()?;
+        let mut file = File::create(path).context("Failed to create splits file")?;
+        file.write_all(&writer.into_inner()?)?;
         Ok(())
     }
 
