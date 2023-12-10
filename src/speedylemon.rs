@@ -66,20 +66,22 @@ impl LemonContext {
         }
     }
 
-    pub fn save_splits(&self, path: String) -> Result<()> {
+    pub fn save_splits(splits: Vec<u128>, path: String) -> Result<()> {
         log::info!("Exporting checkpoint splits to {}", path);
         create_dir_all(Path::new(&path).parent().unwrap()).context("Failed to create splits directory")?;
-        
+    
         let mut writer = csv::Writer::from_writer(vec![]);
-        for (idx, split) in self.checkpoint_times.iter().enumerate() {
-            match idx {
-                0 => {},
-                _ => writer.serialize(split.saturating_sub(self.checkpoint_times[idx-1]).as_millis())?
-            };
+        writer.write_record(&["MILLISECONDS"])?;
+        for split in splits {
+            writer.serialize(split)?;
         }
         let mut file = File::create(path).context("Failed to create splits file")?;
         file.write_all(&writer.into_inner()?)?;
         Ok(())
+    }
+
+    pub fn splits(&self) -> Result<Vec<u128>> {
+        Ok(self.checkpoint_times[1..].iter().enumerate().map(|(idx, split)| split.saturating_sub(self.checkpoint_times[idx]).as_millis()).collect())
     }
 
     fn load_splits(path: String) -> Result<Vec<u128>> {
@@ -95,16 +97,20 @@ impl LemonContext {
     }
 
     pub fn save_best_splits(&self, path: String) -> Result<()> {
-        let old_best = Self::load_splits(path)?;
-        let splits: Vec<u128> = self.checkpoint_times[1..].iter().enumerate()
-            .map(|(idx, split)| split.saturating_sub(self.checkpoint_times[idx-1]).as_millis()).collect();
+        if !Path::new(&path).exists() {
+            Self::save_splits(self.splits()?, path)?;
+            return Ok(())
+        }
+        let old_best = Self::load_splits(path.clone())?;
+        let splits: Vec<u128> = self.splits()?;
 
         if old_best.len() != splits.len() {
-            return Err(anyhow!("Split lengths are not equal"))
+            return Err(anyhow!("Split lengths are not equal. Old splits: {:?}, New splits: {:?}", old_best, splits))
         }
 
         let zipped = old_best.iter().zip(splits.iter());
-        let final_splits: Vec<u128> = zipped.map(|(old, new)| std::cmp::max(*old, *new)).collect();
+        let final_splits: Vec<u128> = zipped.map(|(old, new)| std::cmp::min(*old, *new)).collect();
+        Self::save_splits(final_splits, path)?;
         Ok(())
     }
 
@@ -252,7 +258,7 @@ impl LemonContext {
 pub fn run() -> Result<()> {
     let mut terminal = lemontui::init_terminal()?;
     let mut ctx = LemonContext::new(guild_wars_handler::GW2Data::new()?);
-    ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA GENDARRAN.csv"))?;
+    ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA SNOWDEN DRIFTS.csv"))?;
     ctx.init_gw2_data()?;
     let tick_rate = Duration::from_millis(10);
     let log_delta = Duration::from_millis(30);
@@ -283,7 +289,7 @@ pub fn run() -> Result<()> {
             match ctx.race_state {
                 RaceState::Finished => {
                     race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.name))).context("Failed to export race log")?;
-                    ctx.save_splits(String::from(format!("./dev/{}-splits.csv", ctx.course.name))).context("Failed to export splits")?;
+                    ctx.save_best_splits(String::from(format!("./dev/{}-splits.csv", ctx.course.name))).context("Failed to export splits")?;
                 },
                 _ => {},
             }
