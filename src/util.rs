@@ -2,7 +2,7 @@ use crate::guild_wars_handler::Position;
 use anyhow::Result;
 
 pub trait Importable {
-    fn import(path: String) -> Result<Self> where Self: Sized;
+    fn import(path: &String) -> Result<Self> where Self: Sized;
 }
 
 pub trait Exportable {

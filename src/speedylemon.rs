@@ -66,10 +66,6 @@ impl LemonContext {
         }
     }
 
-    pub fn splits(&self) -> Result<Vec<u64>> {
-        Ok(self.checkpoint_times[1..].iter().enumerate().map(|(idx, split)| split.saturating_sub(self.checkpoint_times[idx]).as_millis() as u64).collect())
-    }
-
     pub fn x(&self) -> f32 {
         self.gw2_data.racer.position[0]
     }

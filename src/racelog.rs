@@ -28,7 +28,7 @@ pub struct RaceLogEntry {
 }
 
 impl Importable for Vec<RaceLogEntry> {
-    fn import(path: String) -> Result<Self> where Self: Sized {
+    fn import(path: &String) -> Result<Self> where Self: Sized {
         log::info!("Importing racelog from path: {}", path);
         let mut reader = csv::Reader::from_path(path)?;
         let iter = reader.deserialize();
