@@ -187,6 +187,7 @@ mod tests {
     fn test_export_import() -> Result<()> {
         let path = String::from("/tmp/speedylemon-test-splits.toml");
         let splits_vecs: Vec<Duration> = vec![
+            Duration::from_millis(0),
             Duration::from_millis(100),
             Duration::from_millis(200),
             Duration::from_millis(300),
