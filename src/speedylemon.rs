@@ -1,8 +1,8 @@
 use anyhow::{Result, Context, anyhow};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
-use crate::{util::{euclidian_distance, Importable, Exportable}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::RaceLogEntry};
+use crate::{util::{euclidian_distance, Importable, Exportable}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::RaceLogEntry, splits};
 
-use std::{time::{Duration, Instant}, collections::VecDeque, fs::{create_dir_all, File}, path::Path, io::Write};
+use std::{time::{Duration, Instant}, collections::VecDeque};
 
 use crate::guild_wars_handler;
 use crate::course::Course;
@@ -241,7 +241,7 @@ pub fn run() -> Result<()> {
             match ctx.race_state {
                 RaceState::Finished => {
                     race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.name))).context("Failed to export race log")?;
-                    // ctx.splits()?.export(String::from(format!("./dev/{}-splits.csv", ctx.course.name))).context("Failed to export splits")?;
+                    splits::update_track_data(&ctx.checkpoint_times, String::from(format!("./dev/{}-splits.csv", ctx.course.name))).context("Failed to export splits")?;
                 },
                 _ => {},
             }

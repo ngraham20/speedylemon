@@ -78,7 +78,7 @@ pub fn calculate_pb(previous_data: &RaceLap, checkpoint_times: &Vec<Duration>) -
 }
 
 /// Updates the track data with new PB information if necessary
-pub fn update_track_data(checkpoint_times: Vec<Duration>, path: String) -> Result<()> {
+pub fn update_track_data(checkpoint_times: &Vec<Duration>, path: String) -> Result<()> {
     let previous_data = RaceLap::import(&path)?;
     let new_data = calculate_pb(&previous_data, &checkpoint_times);
 
