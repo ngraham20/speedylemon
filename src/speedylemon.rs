@@ -1,6 +1,6 @@
 use anyhow::{Result, Context, anyhow};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
-use crate::{util::euclidian_distance, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::{RaceLogEntry, RaceLog}};
+use crate::{util::{euclidian_distance, Importable, Exportable}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::RaceLogEntry};
 
 use std::{time::{Duration, Instant}, collections::VecDeque, fs::{create_dir_all, File}, path::Path, io::Write};
 
@@ -66,52 +66,8 @@ impl LemonContext {
         }
     }
 
-    pub fn save_splits(splits: Vec<u128>, path: String) -> Result<()> {
-        log::info!("Exporting checkpoint splits to {}", path);
-        create_dir_all(Path::new(&path).parent().unwrap()).context("Failed to create splits directory")?;
-    
-        let mut writer = csv::Writer::from_writer(vec![]);
-        writer.write_record(&["MILLISECONDS"])?;
-        for split in splits {
-            writer.serialize(split)?;
-        }
-        let mut file = File::create(path).context("Failed to create splits file")?;
-        file.write_all(&writer.into_inner()?)?;
-        Ok(())
-    }
-
-    pub fn splits(&self) -> Result<Vec<u128>> {
-        Ok(self.checkpoint_times[1..].iter().enumerate().map(|(idx, split)| split.saturating_sub(self.checkpoint_times[idx]).as_millis()).collect())
-    }
-
-    fn load_splits(path: String) -> Result<Vec<u128>> {
-        log::info!("Importing checkpoint splits from {}", path);
-        let mut reader = csv::Reader::from_path(&path)?;
-        let iter = reader.deserialize();
-        let mut splits: Vec<u128> = Vec::new();
-        for record in iter {
-            let split: u128 = record?;
-            splits.push(split);
-        }
-        Ok(splits)
-    }
-
-    pub fn save_best_splits(&self, path: String) -> Result<()> {
-        if !Path::new(&path).exists() {
-            Self::save_splits(self.splits()?, path)?;
-            return Ok(())
-        }
-        let old_best = Self::load_splits(path.clone())?;
-        let splits: Vec<u128> = self.splits()?;
-
-        if old_best.len() != splits.len() {
-            return Err(anyhow!("Split lengths are not equal. Old splits: {:?}, New splits: {:?}", old_best, splits))
-        }
-
-        let zipped = old_best.iter().zip(splits.iter());
-        let final_splits: Vec<u128> = zipped.map(|(old, new)| std::cmp::min(*old, *new)).collect();
-        Self::save_splits(final_splits, path)?;
-        Ok(())
+    pub fn splits(&self) -> Result<Vec<u64>> {
+        Ok(self.checkpoint_times[1..].iter().enumerate().map(|(idx, split)| split.saturating_sub(self.checkpoint_times[idx]).as_millis() as u64).collect())
     }
 
     pub fn x(&self) -> f32 {
@@ -289,7 +245,7 @@ pub fn run() -> Result<()> {
             match ctx.race_state {
                 RaceState::Finished => {
                     race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.name))).context("Failed to export race log")?;
-                    ctx.save_best_splits(String::from(format!("./dev/{}-splits.csv", ctx.course.name))).context("Failed to export splits")?;
+                    // ctx.splits()?.export(String::from(format!("./dev/{}-splits.csv", ctx.course.name))).context("Failed to export splits")?;
                 },
                 _ => {},
             }
