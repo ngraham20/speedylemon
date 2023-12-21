@@ -7,6 +7,7 @@ mod camera;
 mod util;
 mod lemontui;
 mod racelog;
+mod splits;
 
 use pretty_env_logger;
 use log;

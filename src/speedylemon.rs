@@ -1,6 +1,6 @@
-use anyhow::{Result, Context};
-use crossterm::event::{Event, self, KeyEventKind, KeyCode};
-use crate::{util::{euclidian_distance, self}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::{RaceLogEntry, RaceLog}};
+use anyhow::{Result, Context, anyhow};
+use crossterm::event::{self, Event, KeyEventKind, KeyCode};
+use crate::{util::{euclidian_distance, Importable, Exportable}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::RaceLogEntry, splits};
 
 use std::{time::{Duration, Instant}, collections::VecDeque};
 
@@ -191,7 +191,7 @@ impl LemonContext {
     }
 
     fn dist_per_poll(&self) -> f32 {
-        util::euclidian_distance(&self.events.0.position, &self.events.1.position)
+        euclidian_distance(&self.events.0.position, &self.events.1.position)
     }
 
     fn time_per_poll(&self) -> u128 {
@@ -210,7 +210,7 @@ impl LemonContext {
 pub fn run() -> Result<()> {
     let mut terminal = lemontui::init_terminal()?;
     let mut ctx = LemonContext::new(guild_wars_handler::GW2Data::new()?);
-    ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA GENDARRAN.csv"))?;
+    ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA SNOWDEN DRIFTS.csv"))?;
     ctx.init_gw2_data()?;
     let tick_rate = Duration::from_millis(10);
     let log_delta = Duration::from_millis(30);
@@ -241,6 +241,7 @@ pub fn run() -> Result<()> {
             match ctx.race_state {
                 RaceState::Finished => {
                     race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.name))).context("Failed to export race log")?;
+                    splits::update_track_data(&ctx.checkpoint_times, String::from(format!("./dev/{}-splits.csv", ctx.course.name))).context("Failed to export splits")?;
                 },
                 _ => {},
             }

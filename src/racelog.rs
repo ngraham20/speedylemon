@@ -1,14 +1,9 @@
 use std::{fs::{File, create_dir_all}, io::Write, path::Path};
+use crate::util::{Importable, Exportable};
 
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, Context};
 use log;
-
-pub trait RaceLog {
-    fn export(&self, path: String) -> Result<()>;
-    fn import(path: String) -> Result<Self> where Self: Sized;
-    fn log_entry(&mut self, entry: RaceLogEntry);
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RaceLogEntry {
@@ -32,7 +27,20 @@ pub struct RaceLogEntry {
     pub map_angle: f32,
 }
 
-impl RaceLog for Vec<RaceLogEntry> {
+impl Importable for Vec<RaceLogEntry> {
+    fn import(path: &String) -> Result<Self> where Self: Sized {
+        log::info!("Importing racelog from path: {}", path);
+        let mut reader = csv::Reader::from_path(path)?;
+        let iter = reader.deserialize();
+        let mut entries: Vec<RaceLogEntry> = Vec::new();
+        for record in iter {
+            entries.push(record?);
+        }
+        Ok(entries)
+    }
+}
+
+impl Exportable for Vec<RaceLogEntry> {
     fn export(&self, path: String) -> Result<()> {
         log::info!("Exporting racelog to path: {}", path);
         create_dir_all(Path::new(&path).parent().unwrap()).context("Failed to create racelog directory")?;
@@ -45,19 +53,14 @@ impl RaceLog for Vec<RaceLogEntry> {
         file.write_all(&writer.into_inner()?)?;
         Ok(())
     }
+}
 
-    fn import(path: String) -> Result<Self> {
-        log::info!("Importing racelog from path: {}", path);
-        let mut reader = csv::Reader::from_path(path)?;
-        let iter = reader.deserialize();
-        let mut entries: Vec<RaceLogEntry> = Vec::new();
-        for record in iter {
-            entries.push(record?);
-        }
-        Ok(entries)
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    fn log_entry(&mut self, entry: RaceLogEntry) {
-        self.push(entry);
+    #[test]
+    fn test_export_import() {
+        // TODO: test racelog import/export
     }
 }
