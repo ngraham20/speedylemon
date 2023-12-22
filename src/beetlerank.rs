@@ -6,19 +6,19 @@ use serde_aux::field_attributes::deserialize_number_from_string;
 struct Ranking {
     #[serde(rename = "ranking")]
     top_3: Vec<Rank>,
-    you: Vec<Rank>,
+    you: Option<Vec<Rank>>,
 }
 
 impl Default for Ranking {
     fn default() -> Self {
         Ranking {
             top_3: Vec::new(),
-            you: Vec::new(),
+            you: Some(Vec::new()),
         }
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Rank {
     #[serde(rename = "pos")]
@@ -120,6 +120,9 @@ mod tests {
         let url = "http://localhost:3000/api/dev/top3/DEV/Test User";
         let response: Ranking = reqwest::blocking::get(url)?.json()?;
         println!("{:?}", response);
+        assert_eq!(response.top_3.len(), 3);
+        assert!(response.you.is_some());
+        assert_eq!(response.you.clone().unwrap().len(), 3);
         assert_eq!(response.top_3[0], Rank {
             rank: 1,
             timestamp: String::from("01:00,000"),
@@ -129,7 +132,7 @@ mod tests {
             map: String::from("TYRIA GENDARRAN"),
             file: String::from("test.csv"),
         });
-        assert_eq!(response.you[1], Rank {
+        assert_eq!(response.you.unwrap()[1], Rank {
             rank: 72,
             timestamp: String::from("01:00,000"),
             name: String::from("Seventy-Second"),
