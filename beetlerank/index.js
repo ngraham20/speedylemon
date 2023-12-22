@@ -1,4 +1,3 @@
-// const http = require('http');
 var express = require('express');
 const app = express();
 const hostname = 'localhost';
