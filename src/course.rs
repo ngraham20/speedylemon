@@ -137,8 +137,33 @@ mod tests {
 
     #[test]
     fn test_course_from_url() {
-        let url = String::from("https://www.beetlerank.com/uploads/checkpoints/TYRIA GENDARRAN.csv");
+        let url = String::from("http://localhost:3000/api/dev/uploads/checkpoints");
         let course = Course::from_url(url.clone()).context(format!("Failed to load checkpoint file from url: {}", url)).unwrap();
-        assert!(course.checkpoints.len() == 14)
+        assert!(course.reset.is_some());
+        assert!(course.checkpoints.len() == 3);
+        assert_eq!(course.checkpoints[0], Checkpoint {
+            step: 0,
+            stepname: Stepname::Start,
+            x: 0.0,
+            y: 1.0,
+            z: 2.0,
+            radius: 15
+        });
+        assert_eq!(course.checkpoints[1], Checkpoint {
+            step: 1,
+            stepname: Stepname::Checkpoint,
+            x: 2.0,
+            y: 3.0,
+            z: 4.0,
+            radius: 15,
+        });
+        assert_eq!(course.checkpoints[2], Checkpoint {
+            step: 2,
+            stepname: Stepname::End,
+            x: 3.0,
+            y: 4.0,
+            z: 5.0,
+            radius: 15,
+        });
     }
 }

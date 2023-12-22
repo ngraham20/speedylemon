@@ -13,8 +13,10 @@
 ## GET
 - MOTD: `https://www.beetlerank.com/api/info`
 - Cups: `https://www.beetlerank.com/api/cups`
-- Maps: `https://www.beetlerank.com/api/maps/<name CUP>`
-- Rank: `https://www.beetlerank.com/rank/api/<course>/<username>`
+- Maps: `https://www.beetlerank.com/api/maps/<cup>`
+- Top3: `https://www.beetlerank.com/api/top3/<course>`
+- Rank: `https://www.beetlerank.com/api/top3/<course>/<username>`
+- Checkpoints: `https://www.beetlerank.com/uploads/checkpoints/<course>.csv`
 
 ## POST
 `https://www.beetlerank.com/upload-log`
