@@ -78,7 +78,7 @@ impl Course {
         })
     }
     
-    pub fn _export_to_path(&self, path: String) -> Result<()> {
+    pub fn export_to_path(&self, path: String) -> Result<()> {
         let mut writer = csv::Writer::from_writer(vec![]);
 
         if let Some(cp) = &self.reset {
