@@ -102,6 +102,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_export_import() -> Result<()> {
+        let path = String::from("/tmp/speedylemon-test-course.csv");
+        let course: Course = Course {
+            name: String::from("speedylemon-test-course"),
+            checkpoints: vec![Checkpoint {
+                step: 0,
+                stepname: Stepname::Checkpoint,
+                x: 0.0,
+                y: 1.0,
+                z: 2.0,
+                radius: 15,
+            }],
+            reset: Some(Checkpoint {
+                step: -1,
+                stepname: Stepname::Reset,
+                x: 1.0,
+                y: 2.0,
+                z: 3.0,
+                radius: 15,
+            }),
+        };
+        course._export_to_path(path.clone())?;
+        let imported = Course::from_path(path)?;
+        assert_eq!(course.name, imported.name);
+        assert!(course.reset.is_some() && imported.reset.is_some());
+        assert_eq!(course.reset.unwrap(), imported.reset.unwrap());
+        for (c, i) in course.checkpoints.iter().zip(imported.checkpoints) {
+            assert_eq!(c, &i);
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn test_course_from_url() {
         let url = String::from("https://www.beetlerank.com/uploads/checkpoints/TYRIA GENDARRAN.csv");
         let course = Course::from_url(url.clone()).context(format!("Failed to load checkpoint file from url: {}", url)).unwrap();
