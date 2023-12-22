@@ -37,9 +37,66 @@ router.get('/top3/:guildhall/:user', async function(req, res) {
   user = req.params.user
 
   if (guildhall === "DEV" && user === "Test User") {
-    succeed(res)
-  } else {
-    fail(res)
+    res.json({
+      "ranking": [
+          {
+              "pos": 1,
+              "time": "01:00,000",
+              "name": "First",
+              "realtime": "60.0",
+              "date": "2022-09-18 02:21:16",
+              "map": "TYRIA GENDARRAN",
+              "file": "test.csv"
+          },
+          {
+            "pos": 2,
+            "time": "01:00,000",
+            "name": "Second",
+            "realtime": "60.0",
+            "date": "2022-09-18 02:21:16",
+            "map": "TYRIA GENDARRAN",
+            "file": "test.csv"
+        },
+          {
+            "pos": 3,
+            "time": "01:00,000",
+            "name": "Third",
+            "realtime": "60.0",
+            "date": "2022-09-18 02:21:16",
+            "map": "TYRIA GENDARRAN",
+            "file": "test.csv"
+        }
+      ],
+      "you": [
+          {
+            "pos": 71,
+            "time": "01:00,000",
+            "name": "Seventy-First",
+            "realtime": "60.0",
+            "date": "2022-09-18 02:21:16",
+            "map": "TYRIA GENDARRAN",
+            "file": "test.csv"
+        },
+          {
+            "pos": 72,
+            "time": "01:00,000",
+            "name": "Seventy-Second",
+            "realtime": "60.0",
+            "date": "2022-09-18 02:21:16",
+            "map": "TYRIA GENDARRAN",
+            "file": "test.csv"
+        },
+          {
+            "pos": 73,
+            "time": "01:00,000",
+            "name": "Seventy-Third",
+            "realtime": "60.0",
+            "date": "2022-09-18 02:21:16",
+            "map": "TYRIA GENDARRAN",
+            "file": "test.csv"
+        }
+      ]
+  })
   }
 })
 
