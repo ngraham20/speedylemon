@@ -123,7 +123,7 @@ mod tests {
                 radius: 15,
             }),
         };
-        course._export_to_path(path.clone())?;
+        course.export_to_path(path.clone())?;
         let imported = Course::from_path(path)?;
         assert_eq!(course.name, imported.name);
         assert!(course.reset.is_some() && imported.reset.is_some());
