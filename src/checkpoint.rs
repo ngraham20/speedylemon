@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 #[serde(default)]
 pub struct Checkpoint {
     #[serde(rename = "STEP")]
@@ -46,7 +46,7 @@ impl Default for Checkpoint {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq)]
 pub enum Stepname {
     #[serde(rename = "start")]
     Start,

@@ -8,6 +8,7 @@ mod util;
 mod lemontui;
 mod racelog;
 mod splits;
+mod beetlerank;
 
 use pretty_env_logger;
 use log;

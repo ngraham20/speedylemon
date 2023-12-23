@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 use anyhow::{Result, Context};
 use log;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct RaceLogEntry {
     #[serde(rename = "X")]
     pub x: f32,
@@ -60,7 +60,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_export_import() {
-        // TODO: test racelog import/export
+    fn test_export_import() -> Result<()> {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let time = SystemTime::now().duration_since(UNIX_EPOCH)?;
+        let path = String::from(format!("/tmp/speedylemon_dev_log_{}.csv", time.as_millis()));
+        let entry = RaceLogEntry {
+            x: 0.0,
+            y: 1.0,
+            z: 2.0,
+            speed: 99.0,
+            cam_angle: 0.0,
+            beetle_angle: 0.0,
+            timestamp: 15.0,
+            acceleration: 0.0,
+            map_angle: 0.0,
+        };
+        let racelog = vec![entry];
+        racelog.export(path.clone())?;
+        let imported = Vec::import(&path)?;
+        for (r, i) in racelog.iter().zip(imported) {
+            assert_eq!(r, &i);
+        }
+
+        Ok(())
     }
 }
