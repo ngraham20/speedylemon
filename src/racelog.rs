@@ -61,7 +61,9 @@ mod tests {
 
     #[test]
     fn test_export_import() -> Result<()> {
-        let path = String::from("/tmp/speedylemon-test-racelog.csv");
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let time = SystemTime::now().duration_since(UNIX_EPOCH)?;
+        let path = String::from(format!("/tmp/speedylemon_dev_log_{}.csv", time.as_millis()));
         let entry = RaceLogEntry {
             x: 0.0,
             y: 1.0,
