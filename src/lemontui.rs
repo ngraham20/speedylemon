@@ -4,6 +4,52 @@ use ratatui::{prelude::*, widgets::*};
 use anyhow::Result;
 use crate::speedylemon::{LemonContext, RaceState};
 
+pub struct StatefulList<T> {
+    state: ListState,
+    items: Vec<T>,
+}
+
+impl<T> StatefulList<T> {
+    pub fn with_items(items: Vec<T>) -> StatefulList<T> {
+        StatefulList {
+            state: ListState::default(),
+            items,
+        }
+    }
+
+    pub fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= self.items.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    pub fn previous(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 {
+                    self.items.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    pub fn unselect(&mut self) {
+        self.state.select(None);
+    }
+}
+
 pub fn chain_hook() {
     let original_hook = std::panic::take_hook();
 
@@ -41,6 +87,29 @@ impl Timestamp for Duration {
     fn timestamp(&self) -> String {
         format!("{:02}:{:02}:{:03}", self.as_secs()/60, self.as_secs()%60, self.subsec_millis())
     }
+}
+
+pub fn map_selection(f: &mut Frame, items: &mut StatefulList<String>) {
+    let size = f.size();
+    let layout = Layout::default()
+    .direction(Direction::Horizontal)
+    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+    .split(size);
+
+    let cups_list: Vec<ListItem> = items
+        .items
+        .iter()
+        .map(|i| {
+            ListItem::new(i.clone()).style(Style::default().fg(Color::White).bg(Color::Reset))
+        })
+        .collect();
+
+    let cups_widget = List::new(cups_list)
+        .block(Block::default().borders(Borders::ALL).title("Select Cup"))
+        .highlight_style(Style::default().bg(Color::White).fg(Color::Black).add_modifier(Modifier::BOLD))
+        .highlight_symbol(">> ");
+
+    f.render_stateful_widget(cups_widget, layout[0], &mut items.state);
 }
 
 pub fn ui(f: &mut Frame, ctx: &mut LemonContext) {

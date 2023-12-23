@@ -1,8 +1,7 @@
-## Design Principals
+# Design Principals
 - Comprehensive application
 - Track speed
 - Understand checkpoints
-- Interface with LiveSplit for timer
 - Integrate timer at some point
 
 - Modular and well-documented
@@ -10,7 +9,7 @@
 
 - The checkpoint creator might be a separate program, or may be integrated# Beetlerank API
 
-## GET
+# GET
 - MOTD: `https://www.beetlerank.com/api/info`
 - Cups: `https://www.beetlerank.com/api/cups`
 - Maps: `https://www.beetlerank.com/api/maps/<cup>`
@@ -18,7 +17,7 @@
 - Rank: `https://www.beetlerank.com/api/top3/<course>/<username>`
 - Checkpoints: `https://www.beetlerank.com/uploads/checkpoints/<course>.csv`
 
-## POST
+# POST
 `https://www.beetlerank.com/upload-log`
 - `user: <username>`
 - `guildhall: <course>`

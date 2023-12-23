@@ -1,5 +1,6 @@
 use anyhow::{Result, Context, anyhow};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
+use ratatui::widgets::ListState;
 use crate::{util::{euclidian_distance, Importable, Exportable}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::RaceLogEntry, splits};
 
 use std::{time::{Duration, Instant}, collections::VecDeque};
@@ -33,6 +34,15 @@ impl TimePosition {
             position: [0f32; 3],
         }
     }
+}
+
+pub enum AppState {
+    Speedometer,
+    PickCheckpoint,
+}
+
+pub struct App {
+    state: AppState,
 }
 
 pub struct LemonContext {
@@ -205,6 +215,41 @@ impl LemonContext {
     fn clear_checkpoint_times(&mut self) {
         self.checkpoint_times = Vec::new();
     }
+}
+
+pub fn run_menu() -> Result<()> {
+    let mut terminal = lemontui::init_terminal()?;
+    let mut ctx = LemonContext::new(guild_wars_handler::GW2Data::new()?);
+    let tick_rate = Duration::from_millis(10);
+    let mut last_tick = Instant::now();
+
+    let mut stateful_list = crate::lemontui::StatefulList::with_items(vec![
+        String::from("TYRIA CUP"),
+        String::from("GUILDHALL CUP"),
+        String::from("DYERS CUP"),
+    ]);
+    loop {
+        terminal.draw(|f| lemontui::map_selection(f, &mut stateful_list))?;
+        let timeout = tick_rate.saturating_sub(last_tick.elapsed());
+            if crossterm::event::poll(timeout)? {
+                if let Event::Key(key) = event::read()? {
+                    if key.kind == KeyEventKind::Press {
+                        match key.code {
+                            KeyCode::Char('p') => { break; },
+                            KeyCode::Up => { stateful_list.previous() },
+                            KeyCode::Down => { stateful_list.next() },
+                            KeyCode::Left => { stateful_list.unselect() },
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            if last_tick.elapsed() >= tick_rate {
+                last_tick = Instant::now();
+            }
+    }
+    lemontui::restore_terminal()?;
+    Ok(())
 }
 
 pub fn run() -> Result<()> {
