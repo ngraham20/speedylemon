@@ -330,7 +330,7 @@ pub fn run() -> Result<()> {
         if ctx.race_state != old_racestate {
             match ctx.race_state {
                 RaceState::Finished => {
-                    // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
+                    // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting. and actually, I don't think the bug is actually in here
                     race_log
                         .export(String::from(format!(
                             "./dev/{}-racelog.csv",
