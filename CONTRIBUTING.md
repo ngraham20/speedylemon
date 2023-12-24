@@ -1,15 +1,21 @@
 # Design Principals
 - Comprehensive application
-- Track speed
-- Understand checkpoints
-- Integrate timer at some point
+    - [x] Track speed
+    - [x] Understand checkpoints
+    - [x] Integrate timer at some point
 
 - Modular and well-documented
 - Test-driven development
 
-- The checkpoint creator might be a separate program, or may be integrated# Beetlerank API
+- The checkpoint creator might be a separate program, or may be integrated
 
-# GET
+# Developing Notes
+## Track Selection Menu
+The track selection menu needs to store the state for the combined selection menu as well as have the entire data tree stored.
+
+# Beetlerank API
+
+## GET
 - MOTD: `https://www.beetlerank.com/api/info`
 - Cups: `https://www.beetlerank.com/api/cups`
 - Maps: `https://www.beetlerank.com/api/maps/<cup>`
@@ -17,7 +23,7 @@
 - Rank: `https://www.beetlerank.com/api/top3/<course>/<username>`
 - Checkpoints: `https://www.beetlerank.com/uploads/checkpoints/<course>.csv`
 
-# POST
+## POST
 `https://www.beetlerank.com/upload-log`
 - `user: <username>`
 - `guildhall: <course>`

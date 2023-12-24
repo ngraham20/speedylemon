@@ -2,19 +2,25 @@ use crossterm::terminal::{LeaveAlternateScreen, disable_raw_mode, EnterAlternate
 use std::{io, time::Duration};
 use ratatui::{prelude::*, widgets::*};
 use anyhow::Result;
-use crate::speedylemon::{LemonContext, RaceState};
+use crate::speedylemon::{LemonContext, RaceState, App};
 
 pub struct StatefulList<T> {
     state: ListState,
     items: Vec<T>,
 }
 
-impl<T> StatefulList<T> {
+impl<T> StatefulList<T> where T: Clone {
     pub fn with_items(items: Vec<T>) -> StatefulList<T> {
         StatefulList {
             state: ListState::default(),
             items,
         }
+    }
+
+    pub fn selected_item(&self) -> Option<T> {
+        if let Some(idx) = self.state.selected() {
+            Some(self.items[idx].clone())
+        } else { None }
     }
 
     pub fn next(&mut self) {
@@ -89,14 +95,15 @@ impl Timestamp for Duration {
     }
 }
 
-pub fn map_selection(f: &mut Frame, items: &mut StatefulList<String>) {
+pub fn map_selection(f: &mut Frame, app: &mut App) {
     let size = f.size();
     let layout = Layout::default()
     .direction(Direction::Horizontal)
     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
     .split(size);
 
-    let cups_list: Vec<ListItem> = items
+    let cups_list: Vec<ListItem> = app
+        .cups
         .items
         .iter()
         .map(|i| {
@@ -109,7 +116,24 @@ pub fn map_selection(f: &mut Frame, items: &mut StatefulList<String>) {
         .highlight_style(Style::default().bg(Color::White).fg(Color::Black).add_modifier(Modifier::BOLD))
         .highlight_symbol(">> ");
 
-    f.render_stateful_widget(cups_widget, layout[0], &mut items.state);
+    f.render_stateful_widget(cups_widget, layout[0], &mut app.cups.state);
+
+
+    let tracks_list: Vec<ListItem> = app
+        .tracks
+        .items
+        .iter()
+        .map(|i| {
+            ListItem::new(i.clone()).style(Style::default().fg(Color::White).bg(Color::Reset))
+        })
+        .collect();
+
+    let tracks_widget = List::new(tracks_list)
+        .block(Block::default().borders(Borders::ALL).title("Select Track"))
+        .highlight_style(Style::default().bg(Color::White).fg(Color::Black).add_modifier(Modifier::BOLD))
+        .highlight_symbol(">> ");
+
+    f.render_stateful_widget(tracks_widget, layout[1], &mut app.tracks.state);
 }
 
 pub fn ui(f: &mut Frame, ctx: &mut LemonContext) {

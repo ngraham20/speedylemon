@@ -1,12 +1,23 @@
-use anyhow::{Result, Context, anyhow};
-use crossterm::event::{self, Event, KeyEventKind, KeyCode};
+use crate::{
+    beetlerank::{self, BeetleRank},
+    checkpoint::Checkpoint,
+    guild_wars_handler::GW2Data,
+    lemontui::{self, StatefulList},
+    racelog::RaceLogEntry,
+    splits,
+    util::{euclidian_distance, Exportable, Importable},
+};
+use anyhow::{anyhow, Context, Result};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::widgets::ListState;
-use crate::{util::{euclidian_distance, Importable, Exportable}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::RaceLogEntry, splits};
 
-use std::{time::{Duration, Instant}, collections::VecDeque};
+use std::{
+    collections::VecDeque,
+    time::{Duration, Instant},
+};
 
-use crate::guild_wars_handler;
 use crate::course::Course;
+use crate::guild_wars_handler;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ProgramState {
@@ -29,20 +40,24 @@ pub struct TimePosition {
 
 impl TimePosition {
     pub fn new() -> TimePosition {
-        TimePosition { 
+        TimePosition {
             time: Instant::now(),
             position: [0f32; 3],
         }
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum AppState {
     Speedometer,
-    PickCheckpoint,
+    PickCup,
+    PickTrack,
 }
 
 pub struct App {
-    state: AppState,
+    pub appstate: AppState,
+    pub cups: StatefulList<String>,
+    pub tracks: StatefulList<String>,
 }
 
 pub struct LemonContext {
@@ -59,7 +74,6 @@ pub struct LemonContext {
 }
 
 impl LemonContext {
-
     // ----- PUBLIC METHODS -----
 
     pub fn new(data: GW2Data) -> LemonContext {
@@ -107,7 +121,7 @@ impl LemonContext {
     fn update_state(&mut self) {
         self.race_state = match self.current_checkpoint {
             0 => RaceState::WaitingToStart,
-            cp if cp < self.course.checkpoints.len() => RaceState::Racing ,
+            cp if cp < self.course.checkpoints.len() => RaceState::Racing,
             _ => RaceState::Finished,
         }
     }
@@ -126,17 +140,17 @@ impl LemonContext {
     pub fn is_in_current_checkpoint(&self) -> bool {
         if self.current_checkpoint < self.course.checkpoints.len() {
             if self.current_cp_distance() < self.peek_current_checkpoint().radius as f32 {
-                return true
+                return true;
             }
         }
-        
+
         false
     }
 
     pub fn is_in_reset_checkpoint(&self) -> bool {
         if let (Some(dst), Some(cp)) = (self.reset_cp_distance(), self.course.reset) {
             if dst < cp.radius as f32 {
-                return true
+                return true;
             }
         }
 
@@ -150,7 +164,10 @@ impl LemonContext {
 
     pub fn reset_cp_distance(&self) -> Option<f32> {
         if let Some(reset) = &self.course.reset {
-            return Some(euclidian_distance(&self.gw2_data.racer.position, &reset.point()))
+            return Some(euclidian_distance(
+                &self.gw2_data.racer.position,
+                &reset.point(),
+            ));
         }
 
         None
@@ -175,14 +192,14 @@ impl LemonContext {
     }
 
     /// Calculate the velocity based on the filtered distance and time
-    /// 
+    ///
     /// ## Constraining the velocity
     /// When boosting, 11430 is the maximum speed measured when boosting but not drifting
-    /// 
+    ///
     /// Set that speed to 100, so 11430/100 = 114.3
-    /// 
+    ///
     /// 100000 / 114.3 = 874.89 achieves the numbers we want
-    /// 
+    ///
     /// Alternatively, 100000 / 115.45 = 866.18 will make the max speed 137 when drifting, which matches the speedometer
     pub fn filtered_velocity(&self) -> i32 {
         let duration = self.filtered_time();
@@ -193,7 +210,11 @@ impl LemonContext {
     // ----- PRIVATE METHODS -----
 
     fn filtered_distance(&self) -> f32 {
-        *self.distance_queue.iter().max_by(|&a, &b| a.partial_cmp(b).unwrap()).unwrap()
+        *self
+            .distance_queue
+            .iter()
+            .max_by(|&a, &b| a.partial_cmp(b).unwrap())
+            .unwrap()
     }
 
     fn filtered_time(&self) -> u128 {
@@ -205,7 +226,11 @@ impl LemonContext {
     }
 
     fn time_per_poll(&self) -> u128 {
-        self.events.1.time.duration_since(self.events.0.time).as_millis()
+        self.events
+            .1
+            .time
+            .duration_since(self.events.0.time)
+            .as_millis()
     }
 
     fn record_checkpoint_time(&mut self) {
@@ -222,31 +247,50 @@ pub fn run_menu() -> Result<()> {
     let mut ctx = LemonContext::new(guild_wars_handler::GW2Data::new()?);
     let tick_rate = Duration::from_millis(10);
     let mut last_tick = Instant::now();
+    let mut beetlerank = BeetleRank::new();
 
-    let mut stateful_list = crate::lemontui::StatefulList::with_items(vec![
-        String::from("TYRIA CUP"),
-        String::from("GUILDHALL CUP"),
-        String::from("DYERS CUP"),
-    ]);
+    let mut app = App {
+        appstate: AppState::PickCup,
+        cups: lemontui::StatefulList::with_items(beetlerank.get_cups()?.clone()),
+        tracks: lemontui::StatefulList::with_items(Vec::new())
+    };
+
     loop {
-        terminal.draw(|f| lemontui::map_selection(f, &mut stateful_list))?;
+        terminal.draw(|f| lemontui::map_selection(f, &mut app))?;
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
-            if crossterm::event::poll(timeout)? {
-                if let Event::Key(key) = event::read()? {
-                    if key.kind == KeyEventKind::Press {
-                        match key.code {
-                            KeyCode::Char('p') => { break; },
-                            KeyCode::Up => { stateful_list.previous() },
-                            KeyCode::Down => { stateful_list.next() },
-                            KeyCode::Left => { stateful_list.unselect() },
-                            _ => {}
+        if crossterm::event::poll(timeout)? {
+            if let Event::Key(key) = event::read()? {
+                if key.kind == KeyEventKind::Press {
+                    match (key.code, app.appstate) {
+                        (KeyCode::Char('p'), _) => {
+                            break;
                         }
+                        (KeyCode::Up, AppState::PickCup) => app.cups.previous(),
+                        (KeyCode::Down, AppState::PickCup) => app.cups.next(),
+                        (KeyCode::Left, AppState::PickCup) => app.cups.unselect(),
+                        (KeyCode::Right, AppState::PickCup) => {
+                            if let Some(item) = app.cups.selected_item() {
+                                app.tracks = lemontui::StatefulList::with_items(beetlerank.get_tracks(item)?.clone());
+                            }
+                            app.tracks.next();
+                            app.appstate = AppState::PickTrack;
+                        },
+
+                        (KeyCode::Up, AppState::PickTrack) => app.tracks.previous(),
+                        (KeyCode::Down, AppState::PickTrack) => app.tracks.next(),
+                        (KeyCode::Left, AppState::PickTrack) => {
+                            app.tracks.unselect();
+                            app.tracks = lemontui::StatefulList::with_items(Vec::new());
+                            app.appstate = AppState::PickCup;
+                        }
+                        _ => {}
                     }
                 }
             }
-            if last_tick.elapsed() >= tick_rate {
-                last_tick = Instant::now();
-            }
+        }
+        if last_tick.elapsed() >= tick_rate {
+            last_tick = Instant::now();
+        }
     }
     lemontui::restore_terminal()?;
     Ok(())
@@ -266,13 +310,14 @@ pub fn run() -> Result<()> {
     let mut race_log: Vec<RaceLogEntry> = Vec::new();
     let mut old_racestate: RaceState;
     while state != ProgramState::Quit {
-        ctx.update().context(format!("Failed to update SpeedyLemon Context Object"))?;
+        ctx.update()
+            .context(format!("Failed to update SpeedyLemon Context Object"))?;
 
         // restart course if needed
         if ctx.is_in_reset_checkpoint() {
             ctx.restart_course();
         }
-        
+
         // collect checkpoint if needed
         if ctx.is_in_current_checkpoint() {
             ctx.collect_checkpoint();
@@ -286,14 +331,23 @@ pub fn run() -> Result<()> {
             match ctx.race_state {
                 RaceState::Finished => {
                     // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
-                    race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.name))).context("Failed to export race log")?;
-                    splits::update_track_data(&ctx.checkpoint_times, String::from(format!("./dev/{}-splits.csv", ctx.course.name))).context("Failed to export splits")?;
-                },
-                _ => {},
+                    race_log
+                        .export(String::from(format!(
+                            "./dev/{}-racelog.csv",
+                            ctx.course.name
+                        )))
+                        .context("Failed to export race log")?;
+                    splits::update_track_data(
+                        &ctx.checkpoint_times,
+                        String::from(format!("./dev/{}-splits.csv", ctx.course.name)),
+                    )
+                    .context("Failed to export splits")?;
+                }
+                _ => {}
             }
         }
 
-        terminal.draw(|f| {lemontui::ui(f, &mut ctx)})?;
+        terminal.draw(|f| lemontui::ui(f, &mut ctx))?;
 
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if crossterm::event::poll(timeout)? {

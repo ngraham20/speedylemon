@@ -1,4 +1,8 @@
+use std::collections::HashMap;
+
+use anyhow::Result;
 use serde::Deserialize;
+
 use serde_aux::field_attributes::deserialize_number_from_string;
 
 #[derive(Debug, Deserialize)]
@@ -18,6 +22,46 @@ impl Default for Ranking {
     }
 }
 
+pub struct BeetleRank {
+    pub cups: Vec<String>,
+    pub tracks: HashMap<String, Vec<String>>,
+}
+
+#[derive(Deserialize)]
+struct Cups {
+    cups: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct Tracks {
+    maps: Vec<String>,
+}
+
+impl BeetleRank {
+    pub fn new() -> BeetleRank {
+        BeetleRank {
+            cups: Vec::new(),
+            tracks: HashMap::new(),
+        }
+    }
+    pub fn get_cups(&mut self) -> Result<&Vec<String>> {
+        if self.cups.is_empty() {
+            let url = "https://www.beetlerank.com/api/cups";
+            let response: Cups = reqwest::blocking::get(url)?.json()?;
+            self.cups = response.cups;
+        }
+        Ok(&self.cups)
+    }
+
+    pub fn get_tracks(&mut self, cup: String) -> Result<&Vec<String>> {
+        Ok(self.tracks.entry(cup.clone()).or_insert({
+            let url = format!("https://www.beetlerank.com/api/maps/{}", cup);
+            let response: Tracks = reqwest::blocking::get(url)?.json()?;
+            response.maps
+        }))
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Rank {
@@ -26,7 +70,10 @@ pub struct Rank {
     #[serde(rename = "time", deserialize_with = "deserialize_number_from_string")]
     timestamp: String,
     name: String,
-    #[serde(rename = "realtime", deserialize_with = "deserialize_number_from_string")]
+    #[serde(
+        rename = "realtime",
+        deserialize_with = "deserialize_number_from_string"
+    )]
     laptime: f64,
     date: String,
     map: String,
@@ -49,25 +96,23 @@ impl Default for Rank {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
     use serde::Deserialize;
 
     use super::*;
 
-
     #[derive(Deserialize)]
     struct DevResponse {
-        succeed: bool
+        succeed: bool,
     }
 
     #[derive(Deserialize)]
     struct Cups {
-        cups: Vec<String>
+        cups: Vec<String>,
     }
 
     #[derive(Deserialize)]
     struct Maps {
-        maps: Vec<String>
+        maps: Vec<String>,
     }
 
     #[test]
@@ -90,10 +135,10 @@ mod tests {
     fn test_cups() -> Result<()> {
         let url = "http://localhost:3000/api/dev/cups";
         let response: Cups = reqwest::blocking::get(url)?.json()?;
-        assert_eq!(response.cups, vec![
-            String::from("TYRIA CUP"),
-            String::from("GUILDHALL CUP")
-        ]);
+        assert_eq!(
+            response.cups,
+            vec![String::from("TYRIA CUP"), String::from("GUILDHALL CUP")]
+        );
         Ok(())
     }
 
@@ -101,9 +146,7 @@ mod tests {
     fn test_maps() -> Result<()> {
         let url = "http://localhost:3000/api/dev/maps/TYRIA CUP";
         let response: Maps = reqwest::blocking::get(url)?.json()?;
-        assert_eq!(response.maps, vec![
-            String::from("TYRIA GENDARRAN")
-        ]);
+        assert_eq!(response.maps, vec![String::from("TYRIA GENDARRAN")]);
         Ok(())
     }
 
@@ -123,24 +166,30 @@ mod tests {
         assert_eq!(response.top_3.len(), 3);
         assert!(response.you.is_some());
         assert_eq!(response.you.clone().unwrap().len(), 3);
-        assert_eq!(response.top_3[0], Rank {
-            rank: 1,
-            timestamp: String::from("01:00,000"),
-            name: String::from("First"),
-            laptime: 60.0,
-            date: String::from("2022-09-18 02:21:16"),
-            map: String::from("TYRIA GENDARRAN"),
-            file: String::from("test.csv"),
-        });
-        assert_eq!(response.you.unwrap()[1], Rank {
-            rank: 72,
-            timestamp: String::from("01:00,000"),
-            name: String::from("Seventy-Second"),
-            laptime: 60.0,
-            date: String::from("2022-09-18 02:21:16"),
-            map: String::from("TYRIA GENDARRAN"),
-            file: String::from("test.csv"),
-        });
+        assert_eq!(
+            response.top_3[0],
+            Rank {
+                rank: 1,
+                timestamp: String::from("01:00,000"),
+                name: String::from("First"),
+                laptime: 60.0,
+                date: String::from("2022-09-18 02:21:16"),
+                map: String::from("TYRIA GENDARRAN"),
+                file: String::from("test.csv"),
+            }
+        );
+        assert_eq!(
+            response.you.unwrap()[1],
+            Rank {
+                rank: 72,
+                timestamp: String::from("01:00,000"),
+                name: String::from("Seventy-Second"),
+                laptime: 60.0,
+                date: String::from("2022-09-18 02:21:16"),
+                map: String::from("TYRIA GENDARRAN"),
+                file: String::from("test.csv"),
+            }
+        );
         Ok(())
     }
 }
