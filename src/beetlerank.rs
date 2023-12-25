@@ -53,12 +53,13 @@ impl BeetleRank {
         Ok(&self.cups)
     }
 
-    pub fn get_tracks(&mut self, cup: String) -> Result<&Vec<String>> {
-        Ok(self.tracks.entry(cup.clone()).or_insert({
+    pub fn get_tracks(&mut self, cup: String) -> Result<Vec<String>> {
+        let tracks = self.tracks.entry(cup.clone()).or_insert_with(||{
             let url = format!("https://www.beetlerank.com/api/maps/{}", cup);
-            let response: Tracks = reqwest::blocking::get(url)?.json()?;
+            let response: Tracks = reqwest::blocking::get(url).unwrap().json().unwrap();
             response.maps
-        }))
+        });
+        Ok(tracks.clone())
     }
 }
 

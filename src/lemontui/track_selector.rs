@@ -1,8 +1,30 @@
 use ratatui::{Frame, layout::{Layout, Direction, Constraint}, widgets::{ListItem, List, Borders, Block}, style::{Style, Color, Modifier}};
+use crate::lemontui::App;
 
-use crate::speedylemon::App;
+use super::StatefulList;
 
-pub fn map_selection(f: &mut Frame, app: &mut App) {
+pub enum TrackSelectorState {
+    Unselected,
+    SelectCup,
+    SelectTrack,
+}
+pub struct StatefulTrackSelector {
+    pub state: TrackSelectorState,
+    pub cups: StatefulList<String>,
+    pub tracks: StatefulList<String>,
+}
+
+impl StatefulTrackSelector {
+    pub fn new() -> StatefulTrackSelector {
+        StatefulTrackSelector {
+            state: TrackSelectorState::Unselected,
+            cups: StatefulList::with_items(vec![]),
+            tracks: StatefulList::with_items(vec![]),
+        }
+    }
+}
+
+pub fn map_selection(f: &mut Frame, app: &mut StatefulTrackSelector) {
     let size = f.size();
     let layout = Layout::default()
     .direction(Direction::Horizontal)

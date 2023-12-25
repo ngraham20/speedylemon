@@ -4,6 +4,14 @@ use ratatui::{Frame, text::Line, layout::{Layout, Constraint}, widgets::{Block, 
 
 use crate::speedylemon::{LemonContext, RaceState};
 
+pub struct TimeTrialState {
+
+}
+
+pub struct TimeTrial {
+
+}
+
 trait Timestamp {
     fn timestamp(&self) -> String;
 }

@@ -2,7 +2,7 @@ use crate::{
     beetlerank::{self, BeetleRank},
     checkpoint::Checkpoint,
     guild_wars_handler::GW2Data,
-    lemontui::{self, StatefulList},
+    lemontui::{self, StatefulList, AppState, App, StatefulTrackSelector},
     racelog::RaceLogEntry,
     splits,
     util::{euclidian_distance, Exportable, Importable},
@@ -45,27 +45,6 @@ impl TimePosition {
             position: [0f32; 3],
         }
     }
-}
-
-#[derive(Clone, Copy)]
-pub enum AppState {
-    Speedometer,
-    PickCup,
-    PickTrack,
-}
-
-pub struct TimeTrialState {
-
-}
-
-pub struct TimeTrial {
-
-}
-
-pub struct App {
-    pub state: AppState,
-    pub cups: StatefulList<String>,
-    pub tracks: StatefulList<String>,
 }
 
 pub struct LemonContext {
@@ -259,12 +238,13 @@ pub fn run_menu() -> Result<()> {
 
     let mut app = App {
         state: AppState::PickCup,
-        cups: lemontui::StatefulList::with_items(beetlerank.get_cups()?.clone()),
-        tracks: lemontui::StatefulList::with_items(Vec::new())
+        track_selector: StatefulTrackSelector::new(),
     };
 
+    app.track_selector.cups = lemontui::StatefulList::with_items(beetlerank.get_cups()?.clone());
+
     loop {
-        terminal.draw(|f| lemontui::map_selection(f, &mut app))?;
+        terminal.draw(|f| lemontui::map_selection(f, &mut app.track_selector))?;
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
@@ -273,22 +253,22 @@ pub fn run_menu() -> Result<()> {
                         (KeyCode::Char('p'), _) => {
                             break;
                         }
-                        (KeyCode::Up, AppState::PickCup) => app.cups.previous(),
-                        (KeyCode::Down, AppState::PickCup) => app.cups.next(),
-                        (KeyCode::Left, AppState::PickCup) => app.cups.unselect(),
+                        (KeyCode::Up, AppState::PickCup) => app.track_selector.cups.previous(),
+                        (KeyCode::Down, AppState::PickCup) => app.track_selector.cups.next(),
+                        (KeyCode::Left, AppState::PickCup) => app.track_selector.cups.unselect(),
                         (KeyCode::Right, AppState::PickCup) => {
-                            if let Some(item) = app.cups.selected_item() {
-                                app.tracks = lemontui::StatefulList::with_items(beetlerank.get_tracks(item)?.clone());
+                            if let Some(item) = app.track_selector.cups.selected_item() {
+                                app.track_selector.tracks = lemontui::StatefulList::with_items(beetlerank.get_tracks(item)?);
                             }
-                            app.tracks.next();
+                            app.track_selector.tracks.next();
                             app.state = AppState::PickTrack;
                         },
 
-                        (KeyCode::Up, AppState::PickTrack) => app.tracks.previous(),
-                        (KeyCode::Down, AppState::PickTrack) => app.tracks.next(),
+                        (KeyCode::Up, AppState::PickTrack) => app.track_selector.tracks.previous(),
+                        (KeyCode::Down, AppState::PickTrack) => app.track_selector.tracks.next(),
                         (KeyCode::Left, AppState::PickTrack) => {
-                            app.tracks.unselect();
-                            app.tracks = lemontui::StatefulList::with_items(Vec::new());
+                            app.track_selector.tracks.unselect();
+                            app.track_selector.tracks = lemontui::StatefulList::with_items(Vec::new());
                             app.state = AppState::PickCup;
                         }
                         _ => {}
