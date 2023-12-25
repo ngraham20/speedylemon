@@ -54,8 +54,16 @@ pub enum AppState {
     PickTrack,
 }
 
+pub struct TimeTrialState {
+
+}
+
+pub struct TimeTrial {
+
+}
+
 pub struct App {
-    pub appstate: AppState,
+    pub state: AppState,
     pub cups: StatefulList<String>,
     pub tracks: StatefulList<String>,
 }
@@ -250,7 +258,7 @@ pub fn run_menu() -> Result<()> {
     let mut beetlerank = BeetleRank::new();
 
     let mut app = App {
-        appstate: AppState::PickCup,
+        state: AppState::PickCup,
         cups: lemontui::StatefulList::with_items(beetlerank.get_cups()?.clone()),
         tracks: lemontui::StatefulList::with_items(Vec::new())
     };
@@ -261,7 +269,7 @@ pub fn run_menu() -> Result<()> {
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
-                    match (key.code, app.appstate) {
+                    match (key.code, app.state) {
                         (KeyCode::Char('p'), _) => {
                             break;
                         }
@@ -273,7 +281,7 @@ pub fn run_menu() -> Result<()> {
                                 app.tracks = lemontui::StatefulList::with_items(beetlerank.get_tracks(item)?.clone());
                             }
                             app.tracks.next();
-                            app.appstate = AppState::PickTrack;
+                            app.state = AppState::PickTrack;
                         },
 
                         (KeyCode::Up, AppState::PickTrack) => app.tracks.previous(),
@@ -281,7 +289,7 @@ pub fn run_menu() -> Result<()> {
                         (KeyCode::Left, AppState::PickTrack) => {
                             app.tracks.unselect();
                             app.tracks = lemontui::StatefulList::with_items(Vec::new());
-                            app.appstate = AppState::PickCup;
+                            app.state = AppState::PickCup;
                         }
                         _ => {}
                     }
