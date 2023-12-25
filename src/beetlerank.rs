@@ -56,7 +56,9 @@ impl BeetleRank {
     pub fn get_tracks(&mut self, cup: String) -> Result<Vec<String>> {
         let tracks = self.tracks.entry(cup.clone()).or_insert_with(||{
             let url = format!("https://www.beetlerank.com/api/maps/{}", cup);
-            let response: Tracks = reqwest::blocking::get(url).unwrap().json().unwrap();
+            let response: Tracks = reqwest::blocking::get(url)
+                .expect("Failed to get tracks from beetlerank").json()
+                .expect("Failed to deserialize json object");
             response.maps
         });
         Ok(tracks.clone())
