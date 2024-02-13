@@ -1,6 +1,6 @@
 use anyhow::{Result, Context, anyhow};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
-use crate::{util::{euclidian_distance, Importable, Exportable}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::RaceLogEntry, splits};
+use crate::{util::{euclidian_distance, euclidian_distance_3d, Importable, Exportable}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::RaceLogEntry, splits};
 
 use std::{time::{Duration, Instant}, collections::VecDeque};
 
@@ -135,12 +135,12 @@ impl LemonContext {
 
     pub fn current_cp_distance(&self) -> f32 {
         let checkpoint = &self.course.checkpoints[self.current_checkpoint];
-        euclidian_distance(&self.gw2_data.racer.position, &checkpoint.point())
+        euclidian_distance_3d(&self.gw2_data.racer.position, &checkpoint.point())
     }
 
     pub fn reset_cp_distance(&self) -> Option<f32> {
         if let Some(reset) = &self.course.reset {
-            return Some(euclidian_distance(&self.gw2_data.racer.position, &reset.point()))
+            return Some(euclidian_distance_3d(&self.gw2_data.racer.position, &reset.point()))
         }
 
         None
@@ -210,7 +210,7 @@ impl LemonContext {
 pub fn run() -> Result<()> {
     let mut terminal = lemontui::init_terminal()?;
     let mut ctx = LemonContext::new(guild_wars_handler::GW2Data::new()?);
-    ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA SNOWDEN DRIFTS.csv"))?;
+    ctx.course = Course::from_path(String::from("dev/DI Roller Coaster Tycoon.csv"))?;
     ctx.init_gw2_data()?;
     let tick_rate = Duration::from_millis(10);
     let log_delta = Duration::from_millis(30);

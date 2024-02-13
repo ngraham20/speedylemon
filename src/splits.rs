@@ -29,12 +29,16 @@ impl RaceLap {
     }
 }
 
+// TODO: This needs to return an Option type too, as it's entirely possible the thing doesn't exist yet
 impl Importable for RaceLap {
-    fn import(path: &String) -> anyhow::Result<Self> where Self: Sized {
+    fn import(path: &String) -> anyhow::Result<Option<Self>> where Self: Sized {
         log::info!("Importing checkpoint splits from {}", path);
+        if !Path::new(path).exists() {
+            return Ok(None)
+        }
         let toml_str = std::fs::read_to_string(path).context("Failed to read toml file")?;
         let splits = toml::from_str(&toml_str).context("Failed to parse toml")?;
-        Ok(splits)
+        Ok(Some(splits))
     }
 }
 
