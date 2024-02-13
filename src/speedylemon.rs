@@ -242,7 +242,7 @@ pub fn run() -> Result<()> {
                 RaceState::Finished => {
                     // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
                     race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.name))).context("Failed to export race log")?;
-                    splits::update_track_data(&ctx.checkpoint_times, String::from(format!("./dev/{}-splits.csv", ctx.course.name))).context("Failed to export splits")?;
+                    splits::update_track_data(&ctx.checkpoint_times, String::from(format!("./dev/{}-splits.toml", ctx.course.name))).context("Failed to export splits")?;
                 },
                 _ => {},
             }

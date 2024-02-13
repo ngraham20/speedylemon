@@ -28,7 +28,7 @@ pub struct RaceLogEntry {
 }
 
 impl Importable for Vec<RaceLogEntry> {
-    fn import(path: &String) -> Result<Self> where Self: Sized {
+    fn import(path: &String) -> Result<Option<Self>> where Self: Sized {
         log::info!("Importing racelog from path: {}", path);
         let mut reader = csv::Reader::from_path(path)?;
         let iter = reader.deserialize();
@@ -36,7 +36,7 @@ impl Importable for Vec<RaceLogEntry> {
         for record in iter {
             entries.push(record?);
         }
-        Ok(entries)
+        Ok(Some(entries))
     }
 }
 
@@ -78,7 +78,7 @@ mod tests {
         let racelog = vec![entry];
         racelog.export(path.clone())?;
         let imported = Vec::import(&path)?;
-        for (r, i) in racelog.iter().zip(imported) {
+        for (r, i) in racelog.iter().zip(imported.unwrap()) {
             assert_eq!(r, &i);
         }
 
