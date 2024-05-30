@@ -1,6 +1,6 @@
 use anyhow::{Result, Context, anyhow};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
-use crate::{util::{euclidian_distance, Importable, Exportable}, checkpoint::Checkpoint, guild_wars_handler::GW2Data, lemontui, racelog::RaceLogEntry, splits};
+use crate::{basictui, checkpoint::Checkpoint, guild_wars_handler::GW2Data, racelog::RaceLogEntry, splits, util::{euclidian_distance_3d, Exportable, Importable}};
 
 use std::{time::{Duration, Instant}, collections::VecDeque};
 
@@ -135,12 +135,12 @@ impl LemonContext {
 
     pub fn current_cp_distance(&self) -> f32 {
         let checkpoint = &self.course.checkpoints[self.current_checkpoint];
-        euclidian_distance(&self.gw2_data.racer.position, &checkpoint.point())
+        euclidian_distance_3d(&self.gw2_data.racer.position, &checkpoint.point())
     }
 
     pub fn reset_cp_distance(&self) -> Option<f32> {
         if let Some(reset) = &self.course.reset {
-            return Some(euclidian_distance(&self.gw2_data.racer.position, &reset.point()))
+            return Some(euclidian_distance_3d(&self.gw2_data.racer.position, &reset.point()))
         }
 
         None
@@ -174,10 +174,11 @@ impl LemonContext {
     /// 100000 / 114.3 = 874.89 achieves the numbers we want
     /// 
     /// Alternatively, 100000 / 115.45 = 866.18 will make the max speed 137 when drifting, which matches the speedometer
-    pub fn filtered_velocity(&self) -> i32 {
+    pub fn filtered_speed(&self) -> i32 {
         let duration = self.filtered_time();
         let distance = self.filtered_distance();
-        (distance * 866.18 / (duration as f32)) as i32
+        // (distance * 866.18 / (duration as f32)) as i32
+        (distance * 546.8 / duration as f32) as i32
     }
 
     // ----- PRIVATE METHODS -----
@@ -191,7 +192,7 @@ impl LemonContext {
     }
 
     fn dist_per_poll(&self) -> f32 {
-        euclidian_distance(&self.events.0.position, &self.events.1.position)
+        euclidian_distance_3d(&self.events.0.position, &self.events.1.position)
     }
 
     fn time_per_poll(&self) -> u128 {
@@ -208,9 +209,9 @@ impl LemonContext {
 }
 
 pub fn run() -> Result<()> {
-    let mut terminal = lemontui::init_terminal()?;
+    basictui::init_terminal()?;
     let mut ctx = LemonContext::new(guild_wars_handler::GW2Data::new()?);
-    ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA SNOWDEN DRIFTS.csv"))?;
+    ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
     ctx.init_gw2_data()?;
     let tick_rate = Duration::from_millis(10);
     let log_delta = Duration::from_millis(30);
@@ -242,13 +243,11 @@ pub fn run() -> Result<()> {
                 RaceState::Finished => {
                     // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
                     race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.name))).context("Failed to export race log")?;
-                    splits::update_track_data(&ctx.checkpoint_times, String::from(format!("./dev/{}-splits.csv", ctx.course.name))).context("Failed to export splits")?;
+                    splits::update_track_data(&ctx.checkpoint_times, String::from(format!("./dev/{}-splits.toml", ctx.course.name))).context("Failed to export splits")?;
                 },
                 _ => {},
             }
         }
-
-        terminal.draw(|f| {lemontui::ui(f, &mut ctx)})?;
 
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if crossterm::event::poll(timeout)? {
@@ -256,12 +255,15 @@ pub fn run() -> Result<()> {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
                         KeyCode::Char('p') => state = ProgramState::Quit,
+                        KeyCode::Char('-') => {ctx.restart_course()},
                         _ => {}
                     }
                 }
             }
         }
+
         if last_tick.elapsed() >= tick_rate {
+            basictui::blit(&mut ctx);
             last_tick = Instant::now();
         }
         if last_log.elapsed() >= log_delta {
@@ -270,7 +272,7 @@ pub fn run() -> Result<()> {
                 x: ctx.x(),
                 y: ctx.y(),
                 z: ctx.z(),
-                speed: ctx.filtered_velocity() as f32,
+                speed: ctx.filtered_speed() as f32,
                 cam_angle: 0.0,
                 beetle_angle: 0.0,
                 timestamp: ctx.start_time.elapsed().as_millis() as f64,
@@ -280,6 +282,6 @@ pub fn run() -> Result<()> {
         }
     }
 
-    lemontui::restore_terminal()?;
+    basictui::restore_terminal()?;
     Ok(())
 }

@@ -5,10 +5,11 @@ mod speedylemon;
 mod racer;
 mod camera;
 mod util;
-mod lemontui;
+// mod lemontui;
 mod racelog;
 mod splits;
 mod beetlerank;
+mod basictui;
 
 use pretty_env_logger;
 use log;

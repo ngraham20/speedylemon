@@ -30,11 +30,14 @@ impl RaceLap {
 }
 
 impl Importable for RaceLap {
-    fn import(path: &String) -> anyhow::Result<Self> where Self: Sized {
+    fn import(path: &String) -> anyhow::Result<Option<Self>> where Self: Sized {
         log::info!("Importing checkpoint splits from {}", path);
+        if !Path::new(path).exists() {
+            return Ok(None)
+        }
         let toml_str = std::fs::read_to_string(path).context("Failed to read toml file")?;
         let splits = toml::from_str(&toml_str).context("Failed to parse toml")?;
-        Ok(splits)
+        Ok(Some(splits))
     }
 }
 
@@ -79,10 +82,14 @@ pub fn calculate_pb(previous_data: &RaceLap, checkpoint_times: &Vec<Duration>) -
 
 /// Updates the track data with new PB information if necessary
 pub fn update_track_data(checkpoint_times: &Vec<Duration>, path: String) -> Result<()> {
-    let previous_data = RaceLap::import(&path)?;
-    let new_data = calculate_pb(&previous_data, &checkpoint_times);
-
-    if new_data != previous_data {
+    let new_data;
+    if let Some(previous_data) = RaceLap::import(&path)? {
+        new_data = calculate_pb(&previous_data, &checkpoint_times);
+        if new_data != previous_data {
+            new_data.export(path)?;
+        }
+    } else {
+        new_data = RaceLap::new(&checkpoint_times);
         new_data.export(path)?;
     }
     Ok(())
@@ -195,7 +202,7 @@ mod tests {
         let splits = RaceLap::new(&splits_vecs);
         splits.export(path.clone()).context("Failed to export splits")?;
         let imported = RaceLap::import(&path).context("Failed to import splits")?;
-        assert_eq!(splits, imported);
+        assert_eq!(splits, imported.unwrap());
         Ok(())
     }
 }
