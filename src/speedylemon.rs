@@ -1,25 +1,42 @@
 use anyhow::{Result, Context};
-use crate::beetlerank::BeetleRank;
+use itertools::Itertools;
+use crate::{beetlerank::BeetleRank, track_selector::{TrackSelector, TrackSelectorState}};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
-use feotui::{restore_terminal, StatefulList};
+use feotui::{restore_terminal, StatefulList, Window};
 use crate::speedometer::{checkpoint::Checkpoint, course::Course, guild_wars_handler::{self, GW2Data}, racelog::RaceLogEntry, splits::update_track_data, util::{euclidian_distance_3d, Exportable}, LemonContext, RaceState};
-use std::{collections::VecDeque, time::{Duration, Instant}};
+use std::{collections::VecDeque, fmt::Display, time::{Duration, Instant}};
 
-use crate::{basictui::blit, track_selector, DEBUG, TRACK_SELECT};
+use crate::{basictui::blit, track_selector, DEBUG};
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ProgramState {
     Quit,
-    Continue,
+    TrackSelector,
+    Speedometer,
+}
+
+impl Display for ProgramState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match *self {
+            Self::TrackSelector => "Track Selector",
+            Self::Speedometer => "Speedometer",
+            Self::Quit => "Quit",
+        })
+    }
 }
 
 pub fn run_program() -> Result<()> {
     // TODO: this should be a full state machine to run the contents of the window
 
-    let mut state = ProgramState::Continue;
+    let mut state = ProgramState::TrackSelector;
     let tick_rate = Duration::from_millis(10);
     let mut last_tick = Instant::now();
-    let mut beetlerank = BeetleRank::new();
+    let mut beetlerank = BeetleRank::mock();
+    let mockbackground = r"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ut sem quis ex iaculis ullamcorper. Sed hendrerit placerat odio, eu ultricies ante vestibulum eget. Curabitur vehicula sodales felis, at scelerisque nunc consectetur nec. In hac habitasse platea dictumst. Vivamus consectetur porttitor hendrerit. Morbi vehicula lacinia rhoncus. Maecenas tempus orci vitae urna tristique molestie. Fusce condimentum mi sed vulputate posuere.
+
+Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit ac diam quis, accumsan lobortis enim. Phasellus vulputate enim dui, ut consectetur lacus blandit et. Curabitur congue, nunc sit amet lacinia sodales, mi mauris cursus nulla, a tempor sem neque id neque. Donec eu nisi at ante aliquam facilisis. Quisque non augue a diam commodo vehicula. Morbi condimentum nulla non leo iaculis, vel scelerisque dui congue. Fusce tincidunt neque sed tellus vestibulum facilisis. Maecenas vitae interdum sapien. Nunc in velit sapien. Aliquam at auctor dui. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Praesent in dapibus urna. Nam ornare urna eu pulvinar posuere. Pellentesque dapibus felis ac justo aliquet aliquam. Vestibulum feugiat vel augue et porttitor.";
+
+    let test_window: Window = Window::new().with_width(70).with_height(20).with_lines(textwrap::wrap(mockbackground, 70).iter().map(|s| s.as_ref().to_string()).collect_vec());
 
     // track_selector should stay in memory to maintain the cache
     let mut track_selector = track_selector::TrackSelector{
@@ -36,7 +53,11 @@ pub fn run_program() -> Result<()> {
                     match key.code {
                         KeyCode::Char('q') => state = ProgramState::Quit,
                         KeyCode::Char('d') => DEBUG.set(!DEBUG.get()),
-                        KeyCode::Char('t') => TRACK_SELECT.set(!TRACK_SELECT.get()),
+                        KeyCode::Char('t') => {state = match state {
+                            ProgramState::Speedometer => ProgramState::TrackSelector,
+                            ProgramState::TrackSelector => ProgramState::Speedometer,
+                            ProgramState::Quit => ProgramState::Quit,
+                        }},
                         _ => {},
                     }
                 }
@@ -44,7 +65,10 @@ pub fn run_program() -> Result<()> {
         }
         if last_tick.elapsed() >= tick_rate {
             print!("{esc}[2J{esc}[1;1H", esc=27 as char);
-            println!("Track Select: {}", TRACK_SELECT.get());
+            println!("Program State: {}", state);
+            println!("Debug mode: {}", DEBUG.get());
+            println!("---");
+            println!("{}", test_window.build_string());
             last_tick = Instant::now();
         }
     }
@@ -56,7 +80,7 @@ pub fn run_program() -> Result<()> {
 // the input should be passed to the module based on state
 // the UI should be drawn based on state 
 pub fn run_track_selector() -> Result<()> {
-    let mut state = ProgramState::Continue;
+    let mut state = ProgramState::Speedometer;
     let tick_rate = Duration::from_millis(10);
     let mut last_tick = Instant::now();
     // let mut dummydata: HashMap<String, Vec<String>> = HashMap::new();
@@ -157,7 +181,7 @@ pub fn run() -> Result<()> {
     let tick_rate = Duration::from_millis(10);
     let log_delta = Duration::from_millis(30);
 
-    let mut state = ProgramState::Continue;
+    let mut state = ProgramState::Speedometer;
     let mut last_tick = Instant::now();
     let mut last_log = Instant::now();
     let mut race_log: Vec<RaceLogEntry> = Vec::new();

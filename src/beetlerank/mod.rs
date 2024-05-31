@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use itertools::Itertools;
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
 use futures::executor::block_on;
@@ -42,6 +43,19 @@ impl BeetleRank {
         BeetleRank {
             cups: Vec::new(),
             tracks: HashMap::new(),
+        }
+    }
+
+    pub fn mock() -> BeetleRank {
+        let mut tracks = HashMap::new();
+        tracks.insert(String::from("Cup 1"), vec!["C1T1", "C1T2", "C1T3"].iter().map(|s| s.to_string()).collect_vec());
+        tracks.insert(String::from("Cup 2"), vec!["C2T1", "C2T2", "C2T3"].iter().map(|s| s.to_string()).collect_vec());
+        tracks.insert(String::from("Cup 3"), vec!["C3T1", "C3T2", "C3T3"].iter().map(|s| s.to_string()).collect_vec());
+        tracks.insert(String::from("Cup 4"), vec!["C4T1", "C4T2", "C4T3"].iter().map(|s| s.to_string()).collect_vec());
+        BeetleRank {
+            cups: vec!["Cup 1", "Cup 2", "Cup 3", "Cup 4"]
+                .iter().map(|s| s.to_string()).collect_vec(),
+            tracks: HashMap::new()
         }
     }
     pub fn get_cups(&mut self) -> Result<&Vec<String>> {
