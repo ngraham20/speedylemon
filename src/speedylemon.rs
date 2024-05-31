@@ -2,7 +2,7 @@ use anyhow::{Result, Context, anyhow};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
 use itertools::{ConsTuples, Itertools};
 use serde::de::Unexpected;
-use crate::{basictui, beetlerank::BeetleRank, checkpoint::Checkpoint, guild_wars_handler::GW2Data, racelog::RaceLogEntry, splits, track_selector::{self, StatefulList}, util::{euclidian_distance_3d, Exportable, Importable}, DEBUG};
+use crate::{basictui::{self, StatefulList}, beetlerank::BeetleRank, checkpoint::Checkpoint, guild_wars_handler::GW2Data, racelog::RaceLogEntry, splits, track_selector, util::{euclidian_distance_3d, Exportable, Importable}, DEBUG, TRACK_SELECT};
 
 use std::{collections::{HashMap, VecDeque}, time::{Duration, Instant}};
 
@@ -12,8 +12,7 @@ use crate::course::Course;
 #[derive(PartialEq, Clone, Copy)]
 pub enum ProgramState {
     Quit,
-    SelectTrack,
-    Racing,
+    Continue,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -211,12 +210,50 @@ impl LemonContext {
     }
 }
 
+pub fn run_program() -> Result<()> {
+    // TODO: this should be a full state machine to run the contents of the window
+
+    let mut state = ProgramState::Continue;
+    let tick_rate = Duration::from_millis(10);
+    let mut last_tick = Instant::now();
+    let mut beetlerank = BeetleRank::new();
+
+    // track_selector should stay in memory to maintain the cache
+    let mut track_selector = track_selector::TrackSelector{
+        state: track_selector::TrackSelectorState::Unselected,
+        cups: StatefulList::with_items(beetlerank.get_cups()?.clone()),
+        tracks: StatefulList::with_items(vec![]),
+    };
+
+    while state != ProgramState::Quit {
+        let timeout = tick_rate.saturating_sub(last_tick.elapsed());
+        if crossterm::event::poll(timeout)? {
+            if let Event::Key(key) = event::read()? {
+                if key.kind == KeyEventKind::Press {
+                    match key.code {
+                        KeyCode::Char('q') => state = ProgramState::Quit,
+                        KeyCode::Char('d') => DEBUG.set(!DEBUG.get()),
+                        KeyCode::Char('t') => TRACK_SELECT.set(!TRACK_SELECT.get()),
+                        _ => {},
+                    }
+                }
+            }
+        }
+        if last_tick.elapsed() >= tick_rate {
+            print!("{esc}[2J{esc}[1;1H", esc=27 as char);
+            println!("Track Select: {}", TRACK_SELECT.get());
+            last_tick = Instant::now();
+        }
+    }
+    Ok(())
+}
+
 
 // TODO: instead of a separate function, break this into self-contained modules
 // the input should be passed to the module based on state
 // the UI should be drawn based on state 
 pub fn run_track_selector() -> Result<()> {
-    let mut state = ProgramState::Racing;
+    let mut state = ProgramState::Continue;
     let tick_rate = Duration::from_millis(10);
     let mut last_tick = Instant::now();
     // let mut dummydata: HashMap<String, Vec<String>> = HashMap::new();
@@ -317,7 +354,7 @@ pub fn run() -> Result<()> {
     let tick_rate = Duration::from_millis(10);
     let log_delta = Duration::from_millis(30);
 
-    let mut state = ProgramState::Racing;
+    let mut state = ProgramState::Continue;
     let mut last_tick = Instant::now();
     let mut last_log = Instant::now();
     let mut race_log: Vec<RaceLogEntry> = Vec::new();
