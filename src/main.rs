@@ -14,6 +14,9 @@ mod track_selector;
 
 use pretty_env_logger;
 use log;
+use std::cell::Cell;
+
+thread_local!(static DEBUG: Cell<bool> = Cell::new(false));
 
 fn main() {
     pretty_env_logger::init();

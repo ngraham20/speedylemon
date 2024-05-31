@@ -2,7 +2,7 @@ use anyhow::{Result, Context, anyhow};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
 use itertools::{ConsTuples, Itertools};
 use serde::de::Unexpected;
-use crate::{basictui, checkpoint::Checkpoint, guild_wars_handler::GW2Data, racelog::RaceLogEntry, splits, track_selector::{self, StatefulList}, util::{euclidian_distance_3d, Exportable, Importable}};
+use crate::{basictui, checkpoint::Checkpoint, guild_wars_handler::GW2Data, racelog::RaceLogEntry, splits, track_selector::{self, StatefulList}, util::{euclidian_distance_3d, Exportable, Importable}, DEBUG};
 
 use std::{collections::{HashMap, VecDeque}, time::{Duration, Instant}};
 
@@ -219,7 +219,7 @@ pub fn run_track_selector() -> Result<()> {
     dummydata.insert("Cup 1".to_string(), vec!["Seitung Circuit".to_string(), "Brisban Wildlands".to_string()]);
     dummydata.insert("Cup 2".to_string(), vec!["New Keineng Rooftops".to_string(), "Echovald Wilds Swamprace".to_string()]);
     let mut track_selector = track_selector::TrackSelector{
-        state: track_selector::TrackSelectorState::SelectCup,
+        state: track_selector::TrackSelectorState::Unselected,
         cups: StatefulList::with_items(cups),
         tracks: StatefulList::with_items(vec![]),
     };
@@ -230,6 +230,7 @@ pub fn run_track_selector() -> Result<()> {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
                         KeyCode::Char('p') => state = ProgramState::Quit,
+                        KeyCode::Char('d') => DEBUG.set(!DEBUG.get()),
                         KeyCode::Up => {
                             match track_selector.state {
                                 track_selector::TrackSelectorState::Unselected => {

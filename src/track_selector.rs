@@ -1,3 +1,5 @@
+use crate::DEBUG;
+
 #[derive(Debug)]
 pub enum TrackSelectorState {
     Unselected,
@@ -61,21 +63,23 @@ impl TrackSelector {
         const SEPARATOR: &str = " | ";
         let mut lines = String::new();
         lines += "Track Selector\n";
-        lines += &format!("State: {:?}\n", self.state);
-        lines += &format!("Cup Selected: {:?}\n", self.cups.selected);
-        lines += &format!("Track Selected: {:?}\n", self.tracks.selected);
+        if DEBUG.get() {
+            lines += &format!("State: {:?}\n", self.state);
+            lines += &format!("Cup Selected: {:?}\n", self.cups.selected);
+            lines += &format!("Track Selected: {:?}\n", self.tracks.selected);
+        }
         let length = usize::max(self.cups.items.len(), self.tracks.items.len());
         for idx in 0..length {
             let mut cuptext = self.cups.items.get(idx).unwrap_or(&String::new()).clone();
             let mut tracktext = self.tracks.items.get(idx).unwrap_or(&String::new()).clone();
             if let Some(sel) = self.cups.selected {
                 if idx == sel {
-                    cuptext = format!("*{}", cuptext);
+                    cuptext = format!("*{}", cuptext).to_uppercase();
                 }
             }
             if let Some(sel) = self.tracks.selected {
                 if idx == sel {
-                    tracktext = format!("*{}", tracktext);
+                    tracktext = format!("*{}", tracktext).to_uppercase();
                 }
             }
             lines += &format!("| {:<20}{}{:<20} |\n", cuptext, SEPARATOR, tracktext);
