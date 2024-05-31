@@ -57,36 +57,33 @@ pub struct TrackSelector {
     pub cups: StatefulList<String>,
     pub tracks: StatefulList<String>,
 }
-
+use colored::Colorize;
 impl TrackSelector {
+
     pub fn build_pane(&self) -> String {
-        const SEPARATOR: &str = " | ";
+        const SEPARATOR: &str = " ┃ ";
         let mut lines: Vec<String> = Vec::new();
         lines.push("Track Selector".to_string());
 
         if DEBUG.get() {
-            lines.push("----- DEBUG -----".to_string());
+            lines.push("━━━━━ DEBUG ━━━━━".to_string());
             lines.push(format!("State: {:?}", self.state));
             lines.push(format!("Cup Selected: {:?}", self.cups.selected));
             lines.push(format!("Track Selected: {:?}", self.tracks.selected));
-            lines.push("-----------------".to_string());
+            lines.push("━━━━━━━━━━━━━━━━━".to_string());
         }
 
         let length = usize::max(self.cups.items.len(), self.tracks.items.len());
         for idx in 0..length {
             let mut cuptext = self.cups.items.get(idx).unwrap_or(&String::new()).clone();
             let mut tracktext = self.tracks.items.get(idx).unwrap_or(&String::new()).clone();
-            if let Some(sel) = self.cups.selected {
-                if idx == sel {
-                    cuptext = format!("*{}", cuptext).to_uppercase();
-                }
-            }
-            if let Some(sel) = self.tracks.selected {
-                if idx == sel {
-                    tracktext = format!("*{}", tracktext).to_uppercase();
-                }
-            }
-            lines.push(format!("| {:<20}{}{:<30} |", cuptext, SEPARATOR, tracktext));
+            let csel = if let Some(sel) = self.cups.selected {
+                idx == sel
+            } else { false };
+            let tsel = if let Some(sel) = self.tracks.selected {
+                idx == sel
+            } else { false };
+            lines.push(format!("┃ {:<20}{}{:<30} ┃", if csel {format!("*{}", cuptext).blue()} else { cuptext.white()}, SEPARATOR, if tsel {format!("*{}", tracktext).blue()} else {tracktext.white()}));
         }
         lines.join("\n")
     }
