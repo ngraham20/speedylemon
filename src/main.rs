@@ -16,9 +16,10 @@ use pretty_env_logger;
 use log;
 use std::cell::Cell;
 
-thread_local!(static DEBUG: Cell<bool> = Cell::new(false));
+thread_local!(static DEBUG: Cell<bool> = Cell::new(true));
 
-fn main() {
+#[tokio::main]
+async fn main() {
     pretty_env_logger::init();
 
     if let Err(err) = speedylemon::run_track_selector() {

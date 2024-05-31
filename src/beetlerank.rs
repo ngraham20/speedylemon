@@ -1,5 +1,11 @@
+use std::collections::HashMap;
+
+use ratatui::symbols::block;
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
+use futures::executor::block_on;
+
+use anyhow::Result;
 
 #[derive(Debug, Deserialize)]
 #[serde(default)]
@@ -15,6 +21,51 @@ impl Default for Ranking {
             top_3: Vec::new(),
             you: Some(Vec::new()),
         }
+    }
+}
+
+pub struct BeetleRank {
+    pub cups: Vec<String>,
+    pub tracks: HashMap<String, Vec<String>>,
+}
+
+#[derive(Deserialize)]
+struct Cups {
+    cups: Vec<String>
+}
+
+#[derive(Deserialize)]
+struct Tracks {
+    maps: Vec<String>,
+}
+
+impl BeetleRank {
+    pub fn new() -> BeetleRank {
+        BeetleRank {
+            cups: Vec::new(),
+            tracks: HashMap::new(),
+        }
+    }
+    pub fn get_cups(&mut self) -> Result<&Vec<String>> {
+        if self.cups.is_empty() {
+            let client = reqwest::Client::builder().use_rustls_tls().build()?;
+            let url = "https://www.beetlerank.com/api/cups";
+            let res = block_on(client.get(url).send())?;
+            let cups: Cups = block_on(res.json())?;
+            self.cups = cups.cups;
+        }
+        Ok(&self.cups)
+    }
+
+    pub fn get_tracks(&mut self, cup: String) -> Result<Vec<String>> {
+        let tracks = self.tracks.entry(cup.clone()).or_insert_with(||{
+            let client = reqwest::Client::builder().use_rustls_tls().build().expect("Failed to build client");
+            let url = format!("https://www.beetlerank.com/api/maps/{}", cup);
+            let res = block_on(client.get(url).send()).expect("Failed to get tracks from beetlerank");
+            let tracks: Tracks = block_on(res.json()).expect("Failed to deserialize json object");
+            tracks.maps
+        });
+        Ok(tracks.clone())
     }
 }
 
@@ -49,7 +100,6 @@ impl Default for Rank {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
     use serde::Deserialize;
 
     use super::*;
@@ -57,17 +107,17 @@ mod tests {
 
     #[derive(Deserialize)]
     struct DevResponse {
-        succeed: bool
+        succeed: bool,
     }
 
     #[derive(Deserialize)]
     struct Cups {
-        cups: Vec<String>
+        cups: Vec<String>,
     }
 
     #[derive(Deserialize)]
     struct Maps {
-        maps: Vec<String>
+        maps: Vec<String>,
     }
 
     #[test]

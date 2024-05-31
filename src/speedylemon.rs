@@ -2,7 +2,7 @@ use anyhow::{Result, Context, anyhow};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
 use itertools::{ConsTuples, Itertools};
 use serde::de::Unexpected;
-use crate::{basictui, checkpoint::Checkpoint, guild_wars_handler::GW2Data, racelog::RaceLogEntry, splits, track_selector::{self, StatefulList}, util::{euclidian_distance_3d, Exportable, Importable}, DEBUG};
+use crate::{basictui, beetlerank::BeetleRank, checkpoint::Checkpoint, guild_wars_handler::GW2Data, racelog::RaceLogEntry, splits, track_selector::{self, StatefulList}, util::{euclidian_distance_3d, Exportable, Importable}, DEBUG};
 
 use std::{collections::{HashMap, VecDeque}, time::{Duration, Instant}};
 
@@ -214,17 +214,18 @@ pub fn run_track_selector() -> Result<()> {
     let mut state = ProgramState::Continue;
     let tick_rate = Duration::from_millis(10);
     let mut last_tick = Instant::now();
-    let mut dummydata: HashMap<String, Vec<String>> = HashMap::new();
-    let cups = vec!["Cup 1".to_string(), "Cup 2".to_string()];
-    dummydata.insert("Cup 1".to_string(), vec!["Seitung Circuit".to_string(), "Brisban Wildlands".to_string()]);
-    dummydata.insert("Cup 2".to_string(), vec!["New Keineng Rooftops".to_string(), "Echovald Wilds Swamprace".to_string()]);
+    // let mut dummydata: HashMap<String, Vec<String>> = HashMap::new();
+    let mut beetlerank = BeetleRank::new();
+    // dummydata.insert("Cup 1".to_string(), vec!["Seitung Circuit".to_string(), "Brisban Wildlands".to_string()]);
+    // dummydata.insert("Cup 2".to_string(), vec!["New Keineng Rooftops".to_string(), "Echovald Wilds Swamprace".to_string()]);
     let mut track_selector = track_selector::TrackSelector{
         state: track_selector::TrackSelectorState::Unselected,
-        cups: StatefulList::with_items(cups),
+        cups: StatefulList::with_items(beetlerank.get_cups()?.clone()),
         tracks: StatefulList::with_items(vec![]),
     };
     while state != ProgramState::Quit {
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
+
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
@@ -282,7 +283,7 @@ pub fn run_track_selector() -> Result<()> {
                                 },
                                 track_selector::TrackSelectorState::SelectCup => {
                                     track_selector.state = track_selector::TrackSelectorState::SelectTrack;
-                                    track_selector.tracks = StatefulList::with_items(dummydata.get(track_selector.cups.selected().unwrap()).unwrap().to_vec());
+                                    track_selector.tracks = StatefulList::with_items(beetlerank.get_tracks(track_selector.cups.selected().unwrap().clone()).unwrap().clone());
                                     track_selector.tracks.select(0);
                                 },
                                 track_selector::TrackSelectorState::SelectTrack => {/* do nothing */},

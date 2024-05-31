@@ -86,7 +86,7 @@ impl TrackSelector {
                     tracktext = format!("*{}", tracktext).to_uppercase();
                 }
             }
-            lines.push(format!("| {:<20}{}{:<20} |", cuptext, SEPARATOR, tracktext));
+            lines.push(format!("| {:<20}{}{:<30} |", cuptext, SEPARATOR, tracktext));
         }
         lines.join("\n")
     }

@@ -1,4 +1,4 @@
-use crate::{guild_wars_handler::Position, DEBUG};
+use crate::{guild_wars_handler::Position};
 use anyhow::Result;
 
 pub trait Importable {
