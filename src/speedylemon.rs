@@ -1,13 +1,11 @@
-use anyhow::{Result, Context, anyhow};
+use anyhow::{Result, Context};
+use beetlerank::BeetleRank;
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
-use itertools::{ConsTuples, Itertools};
-use serde::de::Unexpected;
-use crate::{basictui::{self, StatefulList}, beetlerank::BeetleRank, checkpoint::Checkpoint, guild_wars_handler::GW2Data, racelog::RaceLogEntry, splits, track_selector, util::{euclidian_distance_3d, Exportable, Importable}, DEBUG, TRACK_SELECT};
+use feotui::{restore_terminal, StatefulList};
+use speedometer::{checkpoint::Checkpoint, course::Course, guild_wars_handler::{self, GW2Data}, racelog::RaceLogEntry, splits::update_track_data, util::{euclidian_distance_3d, Exportable}};
+use std::{collections::VecDeque, time::{Duration, Instant}};
 
-use std::{collections::{HashMap, VecDeque}, time::{Duration, Instant}};
-
-use crate::guild_wars_handler;
-use crate::course::Course;
+use crate::{basictui::blit, track_selector, DEBUG, TRACK_SELECT};
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ProgramState {
@@ -347,7 +345,7 @@ pub fn run_track_selector() -> Result<()> {
 }
 
 pub fn run() -> Result<()> {
-    basictui::init_terminal()?;
+    feotui::init_terminal()?;
     let mut ctx = LemonContext::new(guild_wars_handler::GW2Data::new()?);
     ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
     ctx.init_gw2_data()?;
@@ -381,7 +379,7 @@ pub fn run() -> Result<()> {
                 RaceState::Finished => {
                     // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
                     race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.name))).context("Failed to export race log")?;
-                    splits::update_track_data(&ctx.checkpoint_times, String::from(format!("./dev/{}-splits.toml", ctx.course.name))).context("Failed to export splits")?;
+                    update_track_data(&ctx.checkpoint_times, String::from(format!("./dev/{}-splits.toml", ctx.course.name))).context("Failed to export splits")?;
                 },
                 _ => {},
             }
@@ -401,7 +399,7 @@ pub fn run() -> Result<()> {
         }
 
         if last_tick.elapsed() >= tick_rate {
-            basictui::blit(&mut ctx);
+            blit(&mut ctx);
             last_tick = Instant::now();
         }
         if last_log.elapsed() >= log_delta {
@@ -420,6 +418,6 @@ pub fn run() -> Result<()> {
         }
     }
 
-    basictui::restore_terminal()?;
+    restore_terminal()?;
     Ok(())
 }

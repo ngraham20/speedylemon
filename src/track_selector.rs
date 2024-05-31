@@ -1,4 +1,4 @@
-use crate::{basictui::StatefulList, DEBUG};
+use crate::DEBUG;
 
 #[derive(Debug)]
 pub enum TrackSelectorState {
@@ -13,6 +13,7 @@ pub struct TrackSelector {
     pub tracks: StatefulList<String>,
 }
 use colored::Colorize;
+use feotui::StatefulList;
 impl TrackSelector {
 
     pub fn build_pane(&self) -> String {

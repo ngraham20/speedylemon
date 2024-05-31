@@ -25,3 +25,6 @@ toml = "0.8.8"
 futures = "0.3.30"
 tokio = {version = "1.38.0", features = ["full"]}
 colored = "2.1.0"
+beetlerank = { path = "./beetlerank" }
+speedometer = { path = "./speedometer" }
+feotui = { path = "./feotui" }

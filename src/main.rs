@@ -1,16 +1,6 @@
-mod guild_wars_handler;
-mod checkpoint;
-mod course;
-mod speedylemon;
-mod racer;
-mod camera;
-mod util;
-// mod lemontui;
-mod racelog;
-mod splits;
-mod beetlerank;
 mod basictui;
 mod track_selector;
+mod speedylemon;
 
 use pretty_env_logger;
 use log;

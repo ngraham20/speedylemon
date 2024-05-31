@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-
-use ratatui::symbols::block;
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
 use futures::executor::block_on;
