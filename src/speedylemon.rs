@@ -12,7 +12,8 @@ use crate::course::Course;
 #[derive(PartialEq, Clone, Copy)]
 pub enum ProgramState {
     Quit,
-    Continue,
+    SelectTrack,
+    Racing,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -210,8 +211,12 @@ impl LemonContext {
     }
 }
 
+
+// TODO: instead of a separate function, break this into self-contained modules
+// the input should be passed to the module based on state
+// the UI should be drawn based on state 
 pub fn run_track_selector() -> Result<()> {
-    let mut state = ProgramState::Continue;
+    let mut state = ProgramState::Racing;
     let tick_rate = Duration::from_millis(10);
     let mut last_tick = Instant::now();
     // let mut dummydata: HashMap<String, Vec<String>> = HashMap::new();
@@ -312,7 +317,7 @@ pub fn run() -> Result<()> {
     let tick_rate = Duration::from_millis(10);
     let log_delta = Duration::from_millis(30);
 
-    let mut state = ProgramState::Continue;
+    let mut state = ProgramState::Racing;
     let mut last_tick = Instant::now();
     let mut last_log = Instant::now();
     let mut race_log: Vec<RaceLogEntry> = Vec::new();

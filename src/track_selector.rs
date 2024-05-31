@@ -75,8 +75,8 @@ impl TrackSelector {
 
         let length = usize::max(self.cups.items.len(), self.tracks.items.len());
         for idx in 0..length {
-            let mut cuptext = self.cups.items.get(idx).unwrap_or(&String::new()).clone();
-            let mut tracktext = self.tracks.items.get(idx).unwrap_or(&String::new()).clone();
+            let cuptext = self.cups.items.get(idx).unwrap_or(&String::new()).clone();
+            let tracktext = self.tracks.items.get(idx).unwrap_or(&String::new()).clone();
             let csel = if let Some(sel) = self.cups.selected {
                 idx == sel
             } else { false };
