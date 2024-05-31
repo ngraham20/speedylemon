@@ -61,13 +61,17 @@ pub struct TrackSelector {
 impl TrackSelector {
     pub fn build_pane(&self) -> String {
         const SEPARATOR: &str = " | ";
-        let mut lines = String::new();
-        lines += "Track Selector\n";
+        let mut lines: Vec<String> = Vec::new();
+        lines.push("Track Selector".to_string());
+
         if DEBUG.get() {
-            lines += &format!("State: {:?}\n", self.state);
-            lines += &format!("Cup Selected: {:?}\n", self.cups.selected);
-            lines += &format!("Track Selected: {:?}\n", self.tracks.selected);
+            lines.push("----- DEBUG -----".to_string());
+            lines.push(format!("State: {:?}", self.state));
+            lines.push(format!("Cup Selected: {:?}", self.cups.selected));
+            lines.push(format!("Track Selected: {:?}", self.tracks.selected));
+            lines.push("-----------------".to_string());
         }
+
         let length = usize::max(self.cups.items.len(), self.tracks.items.len());
         for idx in 0..length {
             let mut cuptext = self.cups.items.get(idx).unwrap_or(&String::new()).clone();
@@ -82,8 +86,8 @@ impl TrackSelector {
                     tracktext = format!("*{}", tracktext).to_uppercase();
                 }
             }
-            lines += &format!("| {:<20}{}{:<20} |\n", cuptext, SEPARATOR, tracktext);
+            lines.push(format!("| {:<20}{}{:<20} |", cuptext, SEPARATOR, tracktext));
         }
-        lines
+        lines.join("\n")
     }
 }
