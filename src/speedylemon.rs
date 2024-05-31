@@ -1,8 +1,10 @@
 use anyhow::{Result, Context, anyhow};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
-use crate::{basictui, checkpoint::Checkpoint, guild_wars_handler::GW2Data, racelog::RaceLogEntry, splits, util::{euclidian_distance_3d, Exportable, Importable}};
+use itertools::{ConsTuples, Itertools};
+use serde::de::Unexpected;
+use crate::{basictui, checkpoint::Checkpoint, guild_wars_handler::GW2Data, racelog::RaceLogEntry, splits, track_selector::{self, StatefulList}, util::{euclidian_distance_3d, Exportable, Importable}};
 
-use std::{time::{Duration, Instant}, collections::VecDeque};
+use std::{collections::{HashMap, VecDeque}, time::{Duration, Instant}};
 
 use crate::guild_wars_handler;
 use crate::course::Course;
@@ -206,6 +208,98 @@ impl LemonContext {
     fn clear_checkpoint_times(&mut self) {
         self.checkpoint_times = Vec::new();
     }
+}
+
+pub fn run_track_selector() -> Result<()> {
+    let mut state = ProgramState::Continue;
+    let tick_rate = Duration::from_millis(10);
+    let mut last_tick = Instant::now();
+    let mut dummydata: HashMap<String, Vec<String>> = HashMap::new();
+    let cups = vec!["Cup 1".to_string(), "Cup 2".to_string()];
+    dummydata.insert("Cup 1".to_string(), vec!["Seitung Circuit".to_string(), "Brisban Wildlands".to_string()]);
+    dummydata.insert("Cup 2".to_string(), vec!["New Keineng Rooftops".to_string(), "Echovald Wilds Swamprace".to_string()]);
+    let mut track_selector = track_selector::TrackSelector{
+        state: track_selector::TrackSelectorState::SelectCup,
+        cups: StatefulList::with_items(cups),
+        tracks: StatefulList::with_items(vec![]),
+    };
+    while state != ProgramState::Quit {
+        let timeout = tick_rate.saturating_sub(last_tick.elapsed());
+        if crossterm::event::poll(timeout)? {
+            if let Event::Key(key) = event::read()? {
+                if key.kind == KeyEventKind::Press {
+                    match key.code {
+                        KeyCode::Char('p') => state = ProgramState::Quit,
+                        KeyCode::Up => {
+                            match track_selector.state {
+                                track_selector::TrackSelectorState::Unselected => {
+                                    track_selector.state = track_selector::TrackSelectorState::SelectCup;
+                                    track_selector.cups.select(0);
+                                },
+                                track_selector::TrackSelectorState::SelectCup => {
+                                    track_selector.cups.prev();
+                                },
+                                track_selector::TrackSelectorState::SelectTrack => {
+                                    track_selector.tracks.prev()
+                                },
+                            }
+                        },
+                        KeyCode::Down => {
+                            match track_selector.state {
+                                track_selector::TrackSelectorState::Unselected => {
+                                    track_selector.state = track_selector::TrackSelectorState::SelectCup;
+                                    track_selector.cups.select(0);
+                                },
+                                track_selector::TrackSelectorState::SelectCup => {
+                                    track_selector.cups.next();
+                                },
+                                track_selector::TrackSelectorState::SelectTrack => {
+                                    track_selector.tracks.next()
+                                },
+                            }
+                        },
+                        KeyCode::Left => {
+                            match track_selector.state {
+                                track_selector::TrackSelectorState::Unselected => {
+                                    track_selector.state = track_selector::TrackSelectorState::SelectCup;
+                                    track_selector.cups.select(0);
+                                },
+                                track_selector::TrackSelectorState::SelectCup => {
+                                    track_selector.cups.select(0);
+                                },
+                                track_selector::TrackSelectorState::SelectTrack => {
+                                    track_selector.tracks.clear();
+                                    track_selector.state = track_selector::TrackSelectorState::SelectCup;
+                                },
+                            }
+                        },
+                        KeyCode::Right => {
+                            match track_selector.state {
+                                track_selector::TrackSelectorState::Unselected => {
+                                    track_selector.state = track_selector::TrackSelectorState::SelectCup;
+                                    track_selector.cups.select(0);
+                                },
+                                track_selector::TrackSelectorState::SelectCup => {
+                                    track_selector.state = track_selector::TrackSelectorState::SelectTrack;
+                                    track_selector.tracks = StatefulList::with_items(dummydata.get(track_selector.cups.selected().unwrap()).unwrap().to_vec());
+                                    track_selector.tracks.select(0);
+                                },
+                                track_selector::TrackSelectorState::SelectTrack => {/* do nothing */},
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    
+        if last_tick.elapsed() >= tick_rate {
+            print!("{esc}[2J{esc}[1;1H", esc=27 as char);
+            println!("{}", track_selector.build_pane());
+            last_tick = Instant::now();
+        }
+    }
+    Ok(())
 }
 
 pub fn run() -> Result<()> {
