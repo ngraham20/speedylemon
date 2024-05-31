@@ -1,7 +1,7 @@
 use std::{fs::File, io::Write};
 
-use crate::checkpoint::Stepname;
-use crate::checkpoint::Checkpoint;
+use super::checkpoint::Stepname;
+use super::checkpoint::Checkpoint;
 use anyhow::Result;
 use log;
 

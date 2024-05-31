@@ -1,6 +1,4 @@
-use speedometer::util::Timestamp;
-
-use crate::speedylemon::{LemonContext, RaceState};
+use crate::speedometer::{util::Timestamp, LemonContext, RaceState};
 
 
 pub fn blit(ctx: &mut LemonContext) {

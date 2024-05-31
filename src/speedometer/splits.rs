@@ -3,7 +3,7 @@ use std::{fs::{create_dir_all, File}, path::Path, io::Write, time::Duration};
 use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
 
-use crate::{checkpoint, util::{Exportable, Importable}};
+use super::{checkpoint, util::{Exportable, Importable}};
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct RaceLap {

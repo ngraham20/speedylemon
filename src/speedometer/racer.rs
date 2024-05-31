@@ -1,4 +1,4 @@
-use crate::guild_wars_handler::Position;
+use super::guild_wars_handler::Position;
 
 pub struct Racer {
     pub position: Position,

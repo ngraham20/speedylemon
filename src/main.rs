@@ -1,6 +1,8 @@
 mod basictui;
 mod track_selector;
 mod speedylemon;
+mod speedometer;
+mod beetlerank;
 
 use pretty_env_logger;
 use log;
