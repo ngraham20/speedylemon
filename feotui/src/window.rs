@@ -1,3 +1,5 @@
+use crossterm::style;
+
 pub enum BorderStyle {
     None,
     Solid,
@@ -5,32 +7,48 @@ pub enum BorderStyle {
 }
 
 pub struct Window {
-    width: usize,
-    height: usize,
     pub lines: Vec<String>,
+    border: BorderStyle,
+    padding: usize,
 }
 
 impl Window {
     pub fn new() -> Self {
         Window {
-            width: 0,
-            height: 0,
             lines: Vec::new(),
+            border: BorderStyle::None,
+            padding: 1,
         }
     }
     pub fn build_string(&self) -> String {
-        self.lines.join("\n")
-    }
-    pub fn with_width(mut self, width: usize) -> Self {
-        self.width = width;
-        self
-    }
-    pub fn with_height(mut self, height: usize) -> Self {
-        self.height = height;
-        self
+        let mut res: Vec<String> = Vec::new();
+        let width = self.lines.iter().map(|s| s.chars().count()).max().unwrap_or(0);
+        println!("width: {}", width);
+        println!("padding: {}", self.padding);
+        match self.border {
+            BorderStyle::Bold => {
+                res.push(format!(" ┏{}┓ ", "━".repeat(width+(self.padding*2))));
+                for line in &self.lines {
+                    res.push(format!(" {: <padding$}{: <width$}{: >padding$} ", "┃", &line, "┃", padding = self.padding+1, width=width));
+                }
+                res.push(format!(" ┗{}┛ ", "━".repeat(width+(self.padding*2))));
+            },
+            _ => {
+                res = self.lines.clone()
+            },
+        }
+        res.join("\n")
     }
     pub fn with_lines(mut self, lines: Vec<String>) -> Self {
         self.lines = lines;
+        self
+    }
+    pub fn with_border(mut self, style: BorderStyle) -> Self {
+        self.border = style;
+        self
+    }
+    pub fn with_padding(mut self, padding: usize) -> Self {
+        self.padding = padding;
         self
     }
 }

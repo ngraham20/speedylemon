@@ -2,7 +2,7 @@ use anyhow::{Result, Context};
 use itertools::Itertools;
 use crate::{beetlerank::BeetleRank, track_selector::{TrackSelector, TrackSelectorState}};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
-use feotui::{restore_terminal, StatefulList, Window};
+use feotui::{restore_terminal, StatefulScrollingList, Window};
 use crate::speedometer::{checkpoint::Checkpoint, course::Course, guild_wars_handler::{self, GW2Data}, racelog::RaceLogEntry, splits::update_track_data, util::{euclidian_distance_3d, Exportable}, LemonContext, RaceState};
 use std::{collections::VecDeque, fmt::Display, time::{Duration, Instant}};
 use feotui::Popup;
@@ -32,6 +32,12 @@ pub fn run_program() -> Result<()> {
     let tick_rate = Duration::from_millis(10);
     let mut last_tick = Instant::now();
     let mut beetlerank = BeetleRank::mock();
+    let mut mocklist: Vec<String> = Vec::new();
+    for i in 0..50 {
+        mocklist.push(format!("Item {}", i));
+    }
+    let mut mockstatelist = StatefulScrollingList::with_items(mocklist).with_scroll_style(feotui::ScrollStyle::Paging).with_viewport_length(8);
+    mockstatelist.select(0);
     let mockbackground = r"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ut sem quis ex iaculis ullamcorper. Sed hendrerit placerat odio, eu ultricies ante vestibulum eget. Curabitur vehicula sodales felis, at scelerisque nunc consectetur nec. In hac habitasse platea dictumst. Vivamus consectetur porttitor hendrerit. Morbi vehicula lacinia rhoncus. Maecenas tempus orci vitae urna tristique molestie. Fusce condimentum mi sed vulputate posuere.
 
 Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit ac diam quis, accumsan lobortis enim. Phasellus vulputate enim dui, ut consectetur lacus blandit et. Curabitur congue, nunc sit amet lacinia sodales, mi mauris cursus nulla, a tempor sem neque id neque. Donec eu nisi at ante aliquam facilisis. Quisque non augue a diam commodo vehicula. Morbi condimentum nulla non leo iaculis, vel scelerisque dui congue. Fusce tincidunt neque sed tellus vestibulum facilisis. Maecenas vitae interdum sapien. Nunc in velit sapien. Aliquam at auctor dui. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Praesent in dapibus urna. Nam ornare urna eu pulvinar posuere. Pellentesque dapibus felis ac justo aliquet aliquam. Vestibulum feugiat vel augue et porttitor.";
@@ -41,16 +47,28 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
         " ┃      MOCK        ┃ ",
         " ┃      POPUP       ┃ ",
         " ┗━━━━━━━━━━━━━━━━━━┛ "].iter().map(|s| s.to_string()).collect_vec();
-    let test_window: Window = Window::new().with_width(70).with_height(20).with_lines(textwrap::wrap(mockbackground, 70).iter().map(|s| format!("{: <width$}", s.as_ref().to_string(), width = 70)).collect_vec());
+    let styledmockpopup = vec![
+        "HELLO",
+        "YOUTUBE",
+        "WELCOME",
+        "TO",
+        "MY",
+        "CRAB",
+    ].iter().map(|s| s.to_string()).collect_vec();
+    let test_popup_window: Window = Window::new().with_lines(styledmockpopup).with_border(feotui::BorderStyle::Bold).with_padding(2);
+    let test_window: Window = Window::new().with_lines(textwrap::wrap(mockbackground, 70).iter().map(|s| format!("{: <width$}", s.as_ref().to_string(), width = 70)).collect_vec());
 
+    let mut scrollwindow: Window = Window::new().with_lines(mockstatelist.viewport()).with_border(feotui::BorderStyle::Bold).with_padding(1);
     // track_selector should stay in memory to maintain the cache
     let mut track_selector = track_selector::TrackSelector{
         state: track_selector::TrackSelectorState::Unselected,
-        cups: StatefulList::with_items(beetlerank.get_cups()?.clone()),
-        tracks: StatefulList::with_items(vec![]),
+        cups: StatefulScrollingList::with_items(beetlerank.get_cups()?.clone()),
+        tracks: StatefulScrollingList::with_items(vec![]),
     };
-    // println!("{}", test_window.lines.popup(&mockpopup, 5, 5));
 
+    // println!("{}", scrollwindow.build_string());
+    // println!("{}", test_popup_window.build_string());
+    
     while state != ProgramState::Quit {
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if crossterm::event::poll(timeout)? {
@@ -64,6 +82,8 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
                             ProgramState::TrackSelector => ProgramState::Speedometer,
                             ProgramState::Quit => ProgramState::Quit,
                         }},
+                        KeyCode::Up => mockstatelist.prev(),
+                        KeyCode::Down => mockstatelist.next(),
                         _ => {},
                     }
                 }
@@ -74,13 +94,15 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
             println!("Program State: {}", state);
             println!("Debug mode: {}", DEBUG.get());
             println!("---");
-            match state {
-                ProgramState::Speedometer => {
-                    println!("{}", test_window.build_string());
-                },
-                ProgramState::TrackSelector => println!("{}", test_window.lines.popup(&mockpopup, 5, 5)),
-                _ => {},
-            }
+            scrollwindow.lines = mockstatelist.viewport();
+            // match state {
+            //     ProgramState::Speedometer => {
+            //         println!("{}", test_window.build_string());
+            //     },
+            //     ProgramState::TrackSelector => println!("{}", test_window.lines.popup(&mockpopup, 5, 5)),
+            //     _ => {},
+            // }
+            println!("{}", scrollwindow.build_string());
             
             last_tick = Instant::now();
         }
@@ -122,8 +144,8 @@ pub fn run_track_selector() -> Result<()> {
     // dummydata.insert("Cup 2".to_string(), vec!["New Keineng Rooftops".to_string(), "Echovald Wilds Swamprace".to_string()]);
     let mut track_selector = track_selector::TrackSelector{
         state: track_selector::TrackSelectorState::Unselected,
-        cups: StatefulList::with_items(beetlerank.get_cups()?.clone()),
-        tracks: StatefulList::with_items(vec![]),
+        cups: StatefulScrollingList::with_items(beetlerank.get_cups()?.clone()),
+        tracks: StatefulScrollingList::with_items(vec![]),
     };
     while state != ProgramState::Quit {
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
@@ -185,7 +207,7 @@ pub fn run_track_selector() -> Result<()> {
                                 },
                                 track_selector::TrackSelectorState::SelectCup => {
                                     track_selector.state = track_selector::TrackSelectorState::SelectTrack;
-                                    track_selector.tracks = StatefulList::with_items(beetlerank.get_tracks(track_selector.cups.selected().unwrap().clone()).unwrap().clone());
+                                    track_selector.tracks = StatefulScrollingList::with_items(beetlerank.get_tracks(track_selector.cups.selected().unwrap().clone()).unwrap().clone());
                                     track_selector.tracks.select(0);
                                 },
                                 track_selector::TrackSelectorState::SelectTrack => {/* do nothing */},

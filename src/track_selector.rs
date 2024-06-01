@@ -9,11 +9,11 @@ pub enum TrackSelectorState {
 
 pub struct TrackSelector {
     pub state: TrackSelectorState,
-    pub cups: StatefulList<String>,
-    pub tracks: StatefulList<String>,
+    pub cups: StatefulScrollingList<String>,
+    pub tracks: StatefulScrollingList<String>,
 }
 use colored::Colorize;
-use feotui::StatefulList;
+use feotui::StatefulScrollingList;
 impl TrackSelector {
 
     pub fn build_pane(&self) -> String {
