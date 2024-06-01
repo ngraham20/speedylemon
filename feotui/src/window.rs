@@ -7,7 +7,7 @@ pub enum BorderStyle {
 pub struct Window {
     width: usize,
     height: usize,
-    lines: Vec<String>,
+    pub lines: Vec<String>,
 }
 
 impl Window {
@@ -37,4 +37,20 @@ impl Window {
 
 pub trait Blit {
     fn blit(&self);
+}
+
+pub trait Popup {
+    fn popup(&self, lines: &Vec<String>, x: usize, y: usize) -> String;
+}
+
+impl Popup for Vec<String> {
+    fn popup(&self, lines: &Vec<String>, x: usize, y: usize) -> String {
+        let mut result = self.clone();
+        for idx in 0..lines.len() {
+            let line = &lines[idx];
+            let length = line.chars().count();
+            result[idx+y].replace_range(x..length+x, &line);
+        }
+        result.join("\n")
+    }
 }

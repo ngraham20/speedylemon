@@ -5,7 +5,7 @@ use crossterm::event::{self, Event, KeyEventKind, KeyCode};
 use feotui::{restore_terminal, StatefulList, Window};
 use crate::speedometer::{checkpoint::Checkpoint, course::Course, guild_wars_handler::{self, GW2Data}, racelog::RaceLogEntry, splits::update_track_data, util::{euclidian_distance_3d, Exportable}, LemonContext, RaceState};
 use std::{collections::VecDeque, fmt::Display, time::{Duration, Instant}};
-
+use feotui::Popup;
 use crate::{basictui::blit, track_selector, DEBUG};
 
 #[derive(PartialEq, Clone, Copy)]
@@ -36,7 +36,12 @@ pub fn run_program() -> Result<()> {
 
 Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit ac diam quis, accumsan lobortis enim. Phasellus vulputate enim dui, ut consectetur lacus blandit et. Curabitur congue, nunc sit amet lacinia sodales, mi mauris cursus nulla, a tempor sem neque id neque. Donec eu nisi at ante aliquam facilisis. Quisque non augue a diam commodo vehicula. Morbi condimentum nulla non leo iaculis, vel scelerisque dui congue. Fusce tincidunt neque sed tellus vestibulum facilisis. Maecenas vitae interdum sapien. Nunc in velit sapien. Aliquam at auctor dui. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Praesent in dapibus urna. Nam ornare urna eu pulvinar posuere. Pellentesque dapibus felis ac justo aliquet aliquam. Vestibulum feugiat vel augue et porttitor.";
 
-    let test_window: Window = Window::new().with_width(70).with_height(20).with_lines(textwrap::wrap(mockbackground, 70).iter().map(|s| s.as_ref().to_string()).collect_vec());
+    let mockpopup = vec![
+        " ┏━━━━━━━━━━━━━━━━━━┓ ",
+        " ┃      MOCK        ┃ ",
+        " ┃      POPUP       ┃ ",
+        " ┗━━━━━━━━━━━━━━━━━━┛ "].iter().map(|s| s.to_string()).collect_vec();
+    let test_window: Window = Window::new().with_width(70).with_height(20).with_lines(textwrap::wrap(mockbackground, 70).iter().map(|s| format!("{: <width$}", s.as_ref().to_string(), width = 70)).collect_vec());
 
     // track_selector should stay in memory to maintain the cache
     let mut track_selector = track_selector::TrackSelector{
@@ -44,6 +49,7 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
         cups: StatefulList::with_items(beetlerank.get_cups()?.clone()),
         tracks: StatefulList::with_items(vec![]),
     };
+    // println!("{}", test_window.lines.popup(&mockpopup, 5, 5));
 
     while state != ProgramState::Quit {
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
@@ -68,13 +74,40 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
             println!("Program State: {}", state);
             println!("Debug mode: {}", DEBUG.get());
             println!("---");
-            println!("{}", test_window.build_string());
+            match state {
+                ProgramState::Speedometer => {
+                    println!("{}", test_window.build_string());
+                },
+                ProgramState::TrackSelector => println!("{}", test_window.lines.popup(&mockpopup, 5, 5)),
+                _ => {},
+            }
+            
             last_tick = Instant::now();
         }
     }
     Ok(())
 }
 
+// ┏━━━━━━━━━━━━━━━━━━┓ t sem
+// ┃      MOCK        ┃ r. Sed hendrerit placerat odio, eu ultricies
+// ┃      POPUP       ┃ bitur vehicula sodales felis, at scelerisque
+// ┗━━━━━━━━━━━━━━━━━━┛ s
+// consectetur porttitor hendrerit. Morbi vehicula lacinia rhoncus.
+// Maecenas tempus orci vitae urna tristique molestie. Fusce condimentum
+// mi sed vulputate posuere.
+
+// Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus,
+// suscipit ac diam quis, accumsan lobortis enim. Phasellus vulputate
+// enim dui, ut consectetur lacus blandit et. Curabitur congue, nunc sit
+// amet lacinia sodales, mi mauris cursus nulla, a tempor sem neque id
+// neque. Donec eu nisi at ante aliquam facilisis. Quisque non augue a
+// diam commodo vehicula. Morbi condimentum nulla non leo iaculis, vel
+// scelerisque dui congue. Fusce tincidunt neque sed tellus vestibulum
+// facilisis. Maecenas vitae interdum sapien. Nunc in velit sapien.
+// Aliquam at auctor dui. Pellentesque habitant morbi tristique senectus
+// et netus et malesuada fames ac turpis egestas. Praesent in dapibus
+// urna. Nam ornare urna eu pulvinar posuere. Pellentesque dapibus felis
+// ac justo aliquet aliquam. Vestibulum feugiat vel augue et porttitor.
 
 // TODO: instead of a separate function, break this into self-contained modules
 // the input should be passed to the module based on state
