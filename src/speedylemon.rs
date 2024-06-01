@@ -82,6 +82,7 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
             print!("{esc}[2J{esc}[1;1H", esc=27 as char);
             println!("Program State: {}", state);
             println!("Debug mode: {}", DEBUG.get());
+            println!("Tick rate: {}", last_tick.elapsed().as_millis());
             println!("---");
             cup_window.lines = beetlestatelist.viewport();
             match state {
