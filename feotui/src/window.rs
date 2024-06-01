@@ -20,7 +20,7 @@ impl Window {
             padding: 1,
         }
     }
-    pub fn build_string(&self) -> String {
+    pub fn build_lines(&self) -> Vec<String> {
         let mut res: Vec<String> = Vec::new();
         let width = self.lines.iter().map(|s| s.chars().count()).max().unwrap_or(0);
         println!("width: {}", width);
@@ -37,7 +37,7 @@ impl Window {
                 res = self.lines.clone()
             },
         }
-        res.join("\n")
+        res
     }
     pub fn with_lines(mut self, lines: Vec<String>) -> Self {
         self.lines = lines;

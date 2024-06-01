@@ -31,44 +31,17 @@ pub fn run_program() -> Result<()> {
     let mut state = ProgramState::TrackSelector;
     let tick_rate = Duration::from_millis(10);
     let mut last_tick = Instant::now();
-    let mut beetlerank = BeetleRank::mock();
-    let mut mocklist: Vec<String> = Vec::new();
-    for i in 0..50 {
-        mocklist.push(format!("Item {}", i));
-    }
-    let mut mockstatelist = StatefulScrollingList::with_items(mocklist).with_scroll_style(feotui::ScrollStyle::Paging).with_viewport_length(8);
-    mockstatelist.select(0);
+    let mut beetlerank = BeetleRank::new();
+    let mut beetlestatelist = StatefulScrollingList::with_items(beetlerank.get_cups()?.clone()).with_scroll_style(feotui::ScrollStyle::Paging).with_viewport_length(10);
+    beetlestatelist.select(0);
     let mockbackground = r"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ut sem quis ex iaculis ullamcorper. Sed hendrerit placerat odio, eu ultricies ante vestibulum eget. Curabitur vehicula sodales felis, at scelerisque nunc consectetur nec. In hac habitasse platea dictumst. Vivamus consectetur porttitor hendrerit. Morbi vehicula lacinia rhoncus. Maecenas tempus orci vitae urna tristique molestie. Fusce condimentum mi sed vulputate posuere.
 
 Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit ac diam quis, accumsan lobortis enim. Phasellus vulputate enim dui, ut consectetur lacus blandit et. Curabitur congue, nunc sit amet lacinia sodales, mi mauris cursus nulla, a tempor sem neque id neque. Donec eu nisi at ante aliquam facilisis. Quisque non augue a diam commodo vehicula. Morbi condimentum nulla non leo iaculis, vel scelerisque dui congue. Fusce tincidunt neque sed tellus vestibulum facilisis. Maecenas vitae interdum sapien. Nunc in velit sapien. Aliquam at auctor dui. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Praesent in dapibus urna. Nam ornare urna eu pulvinar posuere. Pellentesque dapibus felis ac justo aliquet aliquam. Vestibulum feugiat vel augue et porttitor.";
 
-    let mockpopup = vec![
-        " ┏━━━━━━━━━━━━━━━━━━┓ ",
-        " ┃      MOCK        ┃ ",
-        " ┃      POPUP       ┃ ",
-        " ┗━━━━━━━━━━━━━━━━━━┛ "].iter().map(|s| s.to_string()).collect_vec();
-    let styledmockpopup = vec![
-        "HELLO",
-        "YOUTUBE",
-        "WELCOME",
-        "TO",
-        "MY",
-        "CRAB",
-    ].iter().map(|s| s.to_string()).collect_vec();
-    let test_popup_window: Window = Window::new().with_lines(styledmockpopup).with_border(feotui::BorderStyle::Bold).with_padding(2);
-    let test_window: Window = Window::new().with_lines(textwrap::wrap(mockbackground, 70).iter().map(|s| format!("{: <width$}", s.as_ref().to_string(), width = 70)).collect_vec());
+    let mut trackselstate = TrackSelectorState::SelectCup;
+    let lorem_ipsum: Window = Window::new().with_lines(textwrap::wrap(mockbackground, 70).iter().map(|s| format!("{: <width$}", s.as_ref().to_string(), width = 70)).collect_vec());
 
-    let mut scrollwindow: Window = Window::new().with_lines(mockstatelist.viewport()).with_border(feotui::BorderStyle::Bold).with_padding(1);
-    // track_selector should stay in memory to maintain the cache
-    let mut track_selector = track_selector::TrackSelector{
-        state: track_selector::TrackSelectorState::Unselected,
-        cups: StatefulScrollingList::with_items(beetlerank.get_cups()?.clone()),
-        tracks: StatefulScrollingList::with_items(vec![]),
-    };
-
-    // println!("{}", scrollwindow.build_string());
-    // println!("{}", test_popup_window.build_string());
-    
+    let mut cup_window: Window = Window::new().with_lines(beetlestatelist.viewport()).with_border(feotui::BorderStyle::Bold).with_padding(1);    
     while state != ProgramState::Quit {
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if crossterm::event::poll(timeout)? {
@@ -82,8 +55,24 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
                             ProgramState::TrackSelector => ProgramState::Speedometer,
                             ProgramState::Quit => ProgramState::Quit,
                         }},
-                        KeyCode::Up => mockstatelist.prev(),
-                        KeyCode::Down => mockstatelist.next(),
+                        KeyCode::Up => beetlestatelist.prev(),
+                        KeyCode::Down => beetlestatelist.next(),
+                        KeyCode::Right => {match trackselstate {
+                            TrackSelectorState::SelectCup => {
+                                beetlestatelist.items = beetlerank.get_tracks(beetlestatelist.selected().unwrap().clone())?;
+                                beetlestatelist.select(0);
+                                trackselstate = TrackSelectorState::SelectTrack;
+                            },
+                            _ => {},
+                        }},
+                        KeyCode::Left => { match trackselstate {
+                            TrackSelectorState::SelectTrack => {
+                                beetlestatelist.items = beetlerank.get_cups()?.clone();
+                                beetlestatelist.select(0);
+                                trackselstate = TrackSelectorState::SelectCup;
+                            },
+                            _ => {},
+                        }}
                         _ => {},
                     }
                 }
@@ -94,134 +83,14 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
             println!("Program State: {}", state);
             println!("Debug mode: {}", DEBUG.get());
             println!("---");
-            scrollwindow.lines = mockstatelist.viewport();
-            // match state {
-            //     ProgramState::Speedometer => {
-            //         println!("{}", test_window.build_string());
-            //     },
-            //     ProgramState::TrackSelector => println!("{}", test_window.lines.popup(&mockpopup, 5, 5)),
-            //     _ => {},
-            // }
-            println!("{}", scrollwindow.build_string());
-            
-            last_tick = Instant::now();
-        }
-    }
-    Ok(())
-}
-
-// ┏━━━━━━━━━━━━━━━━━━┓ t sem
-// ┃      MOCK        ┃ r. Sed hendrerit placerat odio, eu ultricies
-// ┃      POPUP       ┃ bitur vehicula sodales felis, at scelerisque
-// ┗━━━━━━━━━━━━━━━━━━┛ s
-// consectetur porttitor hendrerit. Morbi vehicula lacinia rhoncus.
-// Maecenas tempus orci vitae urna tristique molestie. Fusce condimentum
-// mi sed vulputate posuere.
-
-// Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus,
-// suscipit ac diam quis, accumsan lobortis enim. Phasellus vulputate
-// enim dui, ut consectetur lacus blandit et. Curabitur congue, nunc sit
-// amet lacinia sodales, mi mauris cursus nulla, a tempor sem neque id
-// neque. Donec eu nisi at ante aliquam facilisis. Quisque non augue a
-// diam commodo vehicula. Morbi condimentum nulla non leo iaculis, vel
-// scelerisque dui congue. Fusce tincidunt neque sed tellus vestibulum
-// facilisis. Maecenas vitae interdum sapien. Nunc in velit sapien.
-// Aliquam at auctor dui. Pellentesque habitant morbi tristique senectus
-// et netus et malesuada fames ac turpis egestas. Praesent in dapibus
-// urna. Nam ornare urna eu pulvinar posuere. Pellentesque dapibus felis
-// ac justo aliquet aliquam. Vestibulum feugiat vel augue et porttitor.
-
-// TODO: instead of a separate function, break this into self-contained modules
-// the input should be passed to the module based on state
-// the UI should be drawn based on state 
-pub fn run_track_selector() -> Result<()> {
-    let mut state = ProgramState::Speedometer;
-    let tick_rate = Duration::from_millis(10);
-    let mut last_tick = Instant::now();
-    // let mut dummydata: HashMap<String, Vec<String>> = HashMap::new();
-    let mut beetlerank = BeetleRank::new();
-    // dummydata.insert("Cup 1".to_string(), vec!["Seitung Circuit".to_string(), "Brisban Wildlands".to_string()]);
-    // dummydata.insert("Cup 2".to_string(), vec!["New Keineng Rooftops".to_string(), "Echovald Wilds Swamprace".to_string()]);
-    let mut track_selector = track_selector::TrackSelector{
-        state: track_selector::TrackSelectorState::Unselected,
-        cups: StatefulScrollingList::with_items(beetlerank.get_cups()?.clone()),
-        tracks: StatefulScrollingList::with_items(vec![]),
-    };
-    while state != ProgramState::Quit {
-        let timeout = tick_rate.saturating_sub(last_tick.elapsed());
-
-        if crossterm::event::poll(timeout)? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    match key.code {
-                        KeyCode::Char('p') => state = ProgramState::Quit,
-                        KeyCode::Char('d') => DEBUG.set(!DEBUG.get()),
-                        KeyCode::Up => {
-                            match track_selector.state {
-                                track_selector::TrackSelectorState::Unselected => {
-                                    track_selector.state = track_selector::TrackSelectorState::SelectCup;
-                                    track_selector.cups.select(0);
-                                },
-                                track_selector::TrackSelectorState::SelectCup => {
-                                    track_selector.cups.prev();
-                                },
-                                track_selector::TrackSelectorState::SelectTrack => {
-                                    track_selector.tracks.prev()
-                                },
-                            }
-                        },
-                        KeyCode::Down => {
-                            match track_selector.state {
-                                track_selector::TrackSelectorState::Unselected => {
-                                    track_selector.state = track_selector::TrackSelectorState::SelectCup;
-                                    track_selector.cups.select(0);
-                                },
-                                track_selector::TrackSelectorState::SelectCup => {
-                                    track_selector.cups.next();
-                                },
-                                track_selector::TrackSelectorState::SelectTrack => {
-                                    track_selector.tracks.next()
-                                },
-                            }
-                        },
-                        KeyCode::Left => {
-                            match track_selector.state {
-                                track_selector::TrackSelectorState::Unselected => {
-                                    track_selector.state = track_selector::TrackSelectorState::SelectCup;
-                                    track_selector.cups.select(0);
-                                },
-                                track_selector::TrackSelectorState::SelectCup => {
-                                    track_selector.cups.select(0);
-                                },
-                                track_selector::TrackSelectorState::SelectTrack => {
-                                    track_selector.tracks.clear();
-                                    track_selector.state = track_selector::TrackSelectorState::SelectCup;
-                                },
-                            }
-                        },
-                        KeyCode::Right => {
-                            match track_selector.state {
-                                track_selector::TrackSelectorState::Unselected => {
-                                    track_selector.state = track_selector::TrackSelectorState::SelectCup;
-                                    track_selector.cups.select(0);
-                                },
-                                track_selector::TrackSelectorState::SelectCup => {
-                                    track_selector.state = track_selector::TrackSelectorState::SelectTrack;
-                                    track_selector.tracks = StatefulScrollingList::with_items(beetlerank.get_tracks(track_selector.cups.selected().unwrap().clone()).unwrap().clone());
-                                    track_selector.tracks.select(0);
-                                },
-                                track_selector::TrackSelectorState::SelectTrack => {/* do nothing */},
-                            }
-                        }
-                        _ => {}
-                    }
-                }
+            cup_window.lines = beetlestatelist.viewport();
+            match state {
+                ProgramState::Speedometer => {
+                    println!("{}", lorem_ipsum.build_lines().join("\n"));
+                },
+                ProgramState::TrackSelector => println!("{}", lorem_ipsum.lines.popup(&cup_window.build_lines(), 5, 5)),
+                _ => {},
             }
-        }
-    
-        if last_tick.elapsed() >= tick_rate {
-            print!("{esc}[2J{esc}[1;1H", esc=27 as char);
-            println!("{}", track_selector.build_pane());
             last_tick = Instant::now();
         }
     }
