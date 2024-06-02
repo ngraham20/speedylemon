@@ -182,7 +182,6 @@ pub fn run() -> Result<()> {
                             TrackSelectorState::SelectTrack => {
                                 ctx.load_course(track)?;
                                 state = ProgramState::Speedometer;
-                                // pb = Duration::from_millis(RaceLap::import(&format!("dev/{}-splits.toml", &beetlestatelist.selected().unwrap()))?.unwrap().pb_laptime);
                             }
                             _ => {},
                         }},
@@ -207,20 +206,23 @@ pub fn run() -> Result<()> {
                 println!("Debug mode: {}", DEBUG.get());
                 println!("Tick rate: {}", last_tick.elapsed().as_millis());
                 println!("Racer: {}", &ctx.racer_name());
-                // println!("Top 3: {:?}", if let Some(c) = &ctx.course { Some(&beetlerank.get_top3(&c.name, &"Ella Raevenborne".to_string())?.you) } else { None });
                 println!("---");
             }
             cup_window = beetlestatelist.viewport().pad(1).border(feotui::BorderStyle::Bold);
             if let None = &ctx.course {
                 println!("{}", cup_window.pad(1).border(feotui::BorderStyle::Bold).render());
             } else {
-                match state {
+                let primary_window = speedometer(&mut ctx, &mut beetlerank)?.pad(1).border(feotui::BorderStyle::Bold);
+                println!("{}", match state {
                     ProgramState::Speedometer => {
-                        println!("{}", speedometer(&mut ctx, &mut beetlerank)?.pad(1).border(feotui::BorderStyle::Bold).render());
+                        match ctx.race_state {
+                            RaceState::Finished => primary_window.popup(&race_finished(&ctx, &mut beetlerank)?.pad(1).border(feotui::BorderStyle::Bold), 2, 2).render(),
+                            _ => primary_window.render()
+                        }
                     },
-                    ProgramState::TrackSelector => println!("{}", speedometer(&mut ctx, &mut beetlerank)?.pad(1).border(feotui::BorderStyle::Bold).popup(&cup_window, 2, 2).render()),
-                    _ => {},
-                }
+                    ProgramState::TrackSelector => primary_window.popup(&cup_window, 2, 2).render(),
+                    _ => {String::new()},
+                });
             }
             
             last_tick = Instant::now();
@@ -245,6 +247,18 @@ pub fn run() -> Result<()> {
     Ok(())
 }
 
+fn race_finished(ctx: &LemonContext, beetlerank: &mut BeetleRank) -> Result<Vec<String>> {
+    let mut lines: Vec<String> = Vec::new();
+    lines.push("Race Finished!".to_string());
+    let laptime = ctx.checkpoint_times.last().unwrap();
+    let best_time = (&beetlerank
+        .get_top3(&ctx.course.as_ref().unwrap().name, &ctx.racer_name())?
+        .you.as_ref().unwrap()[1].laptime * 1000f64) as u64;
+    lines.push(format!("Best Time: {}", Duration::from_millis(best_time).timestamp()));
+    lines.push(format!("Lap Time: {}", laptime.timestamp()));
+    Ok(lines)
+}
+
 fn speedometer(ctx: &mut LemonContext, beetlerank: &mut BeetleRank) -> Result<Vec<String>> {
     let mut lines: Vec<String> = Vec::new();
     lines.push(format!("Track: {}", ctx.course.as_ref().unwrap().name));
@@ -264,28 +278,19 @@ fn speedometer(ctx: &mut LemonContext, beetlerank: &mut BeetleRank) -> Result<Ve
         lines.push(format!("{: >2}: {: <padding$} {}", rank.rank, rank.name, rank.timestamp));
     }
     lines.push(format!("---"));
-    match ctx.race_state {
-        RaceState::Finished => {
-            lines.push("Race Finished!".to_string());
-            lines.push(format!("Lap Time: {:?}", ctx.checkpoint_times.last().unwrap().timestamp()));
-        },
-        _ => {
-            
-            lines.push(format!("Checkpoint: {}", ctx.current_checkpoint));
-            lines.push(format!("Distance to next checkpoint: {:.4}", if ctx.current_checkpoint < ctx.course.as_ref().unwrap().checkpoints.len() {
-                ctx.current_cp_distance()} else {
-                    -1.0
-                }));
-            lines.push(format!("Distance to reset checkpoint: {:.4}", ctx.reset_cp_distance().unwrap_or(-1.0)));
-            lines.push(format!("Speed: {:?}", ctx.filtered_speed()));
-            lines.push("----- Checkpoint Times -----".to_string());
-            for (idx, dur) in ctx.checkpoint_times.iter().enumerate() {
-                lines.push(format!("Checkpoint: {}, Time: {}, Delta: {}", idx, dur.timestamp(), match idx {
-                    0 => dur.timestamp(),
-                    _ => dur.saturating_sub(ctx.checkpoint_times[idx-1]).timestamp()
-                }))
-            }
-        }
+    lines.push(format!("Checkpoint: {}", ctx.current_checkpoint));
+    lines.push(format!("Distance to next checkpoint: {:.4}", if ctx.current_checkpoint < ctx.course.as_ref().unwrap().checkpoints.len() {
+        ctx.current_cp_distance()} else {
+            -1.0
+        }));
+    lines.push(format!("Distance to reset checkpoint: {:.4}", ctx.reset_cp_distance().unwrap_or(-1.0)));
+    lines.push(format!("Speed: {:?}", ctx.filtered_speed()));
+    lines.push("----- Checkpoint Times -----".to_string());
+    for (idx, dur) in ctx.checkpoint_times.iter().enumerate() {
+        lines.push(format!("Checkpoint: {}, Time: {}, Delta: {}", idx, dur.timestamp(), match idx {
+            0 => dur.timestamp(),
+            _ => dur.saturating_sub(ctx.checkpoint_times[idx-1]).timestamp()
+        }))
     }
     Ok(lines)
     
