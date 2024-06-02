@@ -285,13 +285,24 @@ fn speedometer(ctx: &mut LemonContext, beetlerank: &mut BeetleRank) -> Result<Ve
         }));
     lines.push(format!("Distance to reset checkpoint: {:.4}", ctx.reset_cp_distance().unwrap_or(-1.0)));
     lines.push(format!("Speed: {:?}", ctx.filtered_speed()));
-    lines.push("----- Checkpoint Times -----".to_string());
-    for (idx, dur) in ctx.checkpoint_times.iter().enumerate() {
-        lines.push(format!("Checkpoint: {}, Time: {}, Delta: {}", idx, dur.timestamp(), match idx {
-            0 => dur.timestamp(),
-            _ => dur.saturating_sub(ctx.checkpoint_times[idx-1]).timestamp()
-        }))
+    if let Some(c) = &ctx.course {
+        lines.push("----- Checkpoint Times -----".to_string());
+        for idx in 0..c.checkpoints.len() {
+            let blank = Duration::new(0,0);
+            let dur = ctx.checkpoint_times.get(idx).unwrap_or(&blank);
+        
+            lines.push(format!("Checkpoint: {}, Time: {}, Delta: {}", idx, dur.timestamp(), match idx {
+                0 => dur.timestamp(),
+                _ => dur.saturating_sub(*ctx.checkpoint_times.get(idx-1).unwrap_or(&blank)).timestamp()
+            }));
+        }
     }
+    // for (idx, dur) in ctx.checkpoint_times.iter().enumerate() {
+    //     lines.push(format!("Checkpoint: {}, Time: {}, Delta: {}", idx, dur.timestamp(), match idx {
+    //         0 => dur.timestamp(),
+    //         _ => dur.saturating_sub(ctx.checkpoint_times[idx-1]).timestamp()
+    //     }))
+    // }
     Ok(lines)
     
 }
