@@ -195,7 +195,7 @@ pub fn run() -> Result<()> {
                 ProgramState::Speedometer => {
                     println!("{}", speedometer(&mut ctx).pad(1).border(feotui::BorderStyle::Bold).render());
                 },
-                ProgramState::TrackSelector => println!("{}", speedometer(&mut ctx).pad(1).popup(&cup_window, 1, 1).border(feotui::BorderStyle::Bold).render()),
+                ProgramState::TrackSelector => println!("{}", speedometer(&mut ctx).pad(1).border(feotui::BorderStyle::Bold).popup(&cup_window, 2, 2).render()),
                 _ => {},
             }
             

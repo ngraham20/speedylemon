@@ -64,16 +64,12 @@ impl Popup for Vec<String> {
         // start with the unaffected lines before it
         let mut out: Vec<String> = self[0..y].to_vec();
         let width = self.iter().map(|s| s.graphemes(true).count()).max().unwrap_or(0);
-
-        println!("width: {}", width);
-        println!("x: {}", x);
         for idx in y..y+lines.len() {
             let line = &lines[idx-y];
             let length = line.graphemes(true).count();
             // draw inside the original content
             if idx < self.len() {
                 if x+length < self[idx].graphemes(true).count() {
-                    println!("line length: {}", length);
                     out.push(format!("{}{}{}", &self[idx].graphemes(true).collect::<Vec<_>>()[..x].join(""), &line, &self[idx].graphemes(true).collect::<Vec<_>>()[x+length..].join("")));
                 } else {
                     out.push(format!("{}{}", &self[idx].graphemes(true).collect::<Vec<_>>()[..x].join(""), &line));
