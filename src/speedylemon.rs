@@ -1,6 +1,6 @@
 use anyhow::{Result, Context};
 use itertools::Itertools;
-use crate::{beetlerank::{BeetleRank, Ranking}, speedometer::util::{Importable, Timestamp}, track_selector::{TrackSelector, TrackSelectorState}};
+use crate::{beetlerank::{BeetleRank, Ranking}, speedometer::{checkpoint::Stepname, util::{Importable, Timestamp}}, track_selector::{TrackSelector, TrackSelectorState}};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
 use feotui::{restore_terminal, Border, Padding, Render, StatefulScrollingList};
 use crate::speedometer::{splits::*, checkpoint::Checkpoint, course::Course, guild_wars_handler::{self, GW2Data}, racelog::RaceLogEntry, splits::update_track_data, util::{euclidian_distance_3d, Exportable}, LemonContext, RaceState};
@@ -13,6 +13,7 @@ use unicode_segmentation::UnicodeSegmentation;
 pub enum ProgramState {
     Quit,
     TrackSelector,
+    TrackCreator,
     Speedometer,
 }
 
@@ -20,6 +21,7 @@ impl Display for ProgramState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match *self {
             Self::TrackSelector => "Track Selector",
+            Self::TrackCreator => "Track Creator",
             Self::Speedometer => "Speedometer",
             Self::Quit => "Quit",
         })
@@ -54,7 +56,7 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
                         KeyCode::Char('t') => {state = match state {
                             ProgramState::Speedometer => ProgramState::TrackSelector,
                             ProgramState::TrackSelector => ProgramState::Speedometer,
-                            ProgramState::Quit => ProgramState::Quit,
+                            _ => state
                         }},
                         KeyCode::Up => beetlestatelist.prev(),
                         KeyCode::Down => beetlestatelist.next(),
@@ -112,6 +114,7 @@ pub fn run() -> Result<()> {
     let mut last_log = Instant::now();
     let mut race_log: Vec<RaceLogEntry> = Vec::new();
     let mut old_racestate: RaceState;
+    let mut creating_course: Course = Course::new();
 
     let mut trackselstate = TrackSelectorState::SelectCup;
 
@@ -162,12 +165,51 @@ pub fn run() -> Result<()> {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
                         KeyCode::Char('q') => state = ProgramState::Quit,
-                        KeyCode::Char('r') => {ctx.restart_course()},
+                        KeyCode::Char('r') => { match state {
+                            ProgramState::Speedometer => ctx.restart_course(),
+                            ProgramState::TrackCreator => { 
+                                creating_course.checkpoints = Vec::new();
+                                creating_course.reset = None;
+                            },
+                            _ => {},
+                            }
+                        },
+                        KeyCode::Char('R') => match state {
+                            ProgramState::TrackCreator => {
+                                creating_course.reset = Some(Checkpoint{
+                                    step: -1,
+                                    stepname: Stepname::Reset,
+                                    x: ctx.x(),
+                                    y: ctx.y(),
+                                    z: ctx.z(),
+                                    radius: 15i32,
+                                })
+                            },
+                            _ => {},
+                        }
                         KeyCode::Char('d') => DEBUG.set(!DEBUG.get()),
+                        KeyCode::Char('c') => { state = match state {
+                            ProgramState::Speedometer => ProgramState::TrackCreator,
+                            ProgramState::TrackCreator => ProgramState::Speedometer,
+                            _ => state
+                        }},
+                        KeyCode::Char('n') => { match state {
+                            ProgramState::TrackCreator => {
+                                creating_course.push_cp(ctx.x(), ctx.y(), ctx.z(), 15i32);
+                            },
+                            _ => {},
+                        }},
+                        KeyCode::Char('e') => { match state {
+                            ProgramState::TrackCreator => {
+                                std::fs::create_dir_all("data/custom_courses")?;
+                                creating_course.export_to_path(format!("data/custom_courses/created-course.csv"))?;
+                            },
+                            _ => {},
+                        }},
                         KeyCode::Char('t') => {state = match state {
                             ProgramState::Speedometer => ProgramState::TrackSelector,
                             ProgramState::TrackSelector => ProgramState::Speedometer,
-                            ProgramState::Quit => ProgramState::Quit,
+                            _ => state
                         }},
                         KeyCode::Up => beetlestatelist.prev(),
                         KeyCode::Down => beetlestatelist.next(),
@@ -222,6 +264,7 @@ pub fn run() -> Result<()> {
                             _ => primary_window.render()
                         }
                     },
+                    ProgramState::TrackCreator => primary_window.popup(&track_creator(&creating_course).pad(1).border(feotui::BorderStyle::Bold), 2, 2).render(),
                     ProgramState::TrackSelector => primary_window.popup(&cup_window, 2, 2).render(),
                     _ => {String::new()},
                 });
@@ -261,6 +304,19 @@ fn race_finished(ctx: &LemonContext, beetlerank: &mut BeetleRank) -> Result<Vec<
     Ok(lines)
 }
 
+fn track_creator(course: &Course) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    lines.push("Track Creator".to_string());
+    lines.push("-------------".to_string());
+    for cp in &course.checkpoints {
+        lines.push(format!("CP {}: ({:.2}, {:.2}, {:.2}", cp.step, cp.x, cp.y, cp.z));
+    }
+    if let Some(reset) = &course.reset {
+        lines.push(format!("Reset: ({:.2}, {:.2}, {:.2}", reset.x, reset.y, reset.z));
+    }
+    lines
+}
+
 fn speedometer(ctx: &mut LemonContext, beetlerank: &mut BeetleRank, pb: &Option<RaceLap>) -> Result<Vec<String>> {
     let mut lines: Vec<String> = Vec::new();
     lines.push(format!("Track: {}", ctx.course.as_ref().unwrap().name));
@@ -295,11 +351,6 @@ fn speedometer(ctx: &mut LemonContext, beetlerank: &mut BeetleRank, pb: &Option<
             let cpdelta = dur.saturating_sub(*ctx.checkpoint_times.get(idx-1).unwrap_or(&Duration::new(0,0)));
             let mut delta: String = String::new();
             if let Some(lap) = pb {
-                // let deltas: Vec<String> = lap.splits.pb.iter().enumerate().map(|(i, s)| if *s > dur.as_millis() as u64 {
-                //     Duration::from_millis(s.saturating_sub(dur.as_millis() as u64)).timestamp()
-                // } else {
-                //     Duration::from_millis((dur.as_millis() as u64).saturating_sub(*s)).timestamp()
-                // }).collect_vec();
                 if let Some(split) = lap.splits.pb.get(idx-1) {
                     if *split > cpdelta.as_millis() as u64 {
                         delta = format!("-{}", Duration::from_millis(split.saturating_sub(cpdelta.as_millis() as u64)).timestamp())

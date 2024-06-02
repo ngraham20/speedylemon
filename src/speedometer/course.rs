@@ -22,6 +22,11 @@ impl Course {
         }
     }
 
+    pub fn push_cp(&mut self, x: f32, y: f32, z: f32, radius: i32) {
+        let idx = self.checkpoints.len();
+        self.checkpoints.push(Checkpoint { step: idx as i16, stepname: Stepname::Checkpoint, x, y, z, radius })
+    }
+
     pub fn from_reader<T: std::io::Read>(track: &String, reader: &mut csv::Reader<T>) -> Result<Course> {
         let iter = reader.deserialize();
         let mut checkpoints: Vec<Checkpoint> = Vec::new();
