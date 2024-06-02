@@ -49,13 +49,45 @@ pub trait Popup {
 }
 
 impl Popup for Vec<String> {
+    // fn popup(&self, lines: &Vec<String>, x: usize, y: usize) -> Self {
+    //     let mut result = self.clone();
+    //     for idx in 0..lines.len() {
+    //         let line = &lines[idx];
+    //         let length = line.chars().count();
+    //         result[idx+y].replace_range(x..length+x, &line);
+    //     }
+    //     result
+    // }
     fn popup(&self, lines: &Vec<String>, x: usize, y: usize) -> Self {
-        let mut result = self.clone();
-        for idx in 0..lines.len() {
-            let line = &lines[idx];
-            let length = line.chars().count();
-            result[idx+y].replace_range(x..length+x, &line);
+        // start with the unaffected lines before it
+        let mut out: Vec<String> = self[0..y].to_vec();
+
+        for idx in y..y+lines.len() {
+            let line = &lines[idx-y];
+            let length = line.graphemes(true).count();
+            // draw inside the original content
+            if idx < self.len() {
+                out.push(format!("{}{}{}", &self[idx][..x], &line, &self[idx][x+length..]));
+            }
+            // we're drawing past the content (in height)
+            else { 
+                out.push(format!("{}{}", " ".repeat(x), line.clone()));
+            }
         }
-        result
+
+        if y + lines.len() < self.len() {
+            out.append(&mut self[y+lines.len()..].to_vec())
+        }
+        out
+    }
+}
+
+pub trait Render {
+    fn render(&self) -> String;
+}
+
+impl Render for Vec<String> {
+    fn render(&self) -> String {
+        self.join("\n")
     }
 }

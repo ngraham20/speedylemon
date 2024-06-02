@@ -1,4 +1,3 @@
-mod basictui;
 mod track_selector;
 mod speedylemon;
 mod speedometer;
@@ -14,7 +13,7 @@ thread_local!(static DEBUG: Cell<bool> = Cell::new(false));
 async fn main() {
     pretty_env_logger::init();
 
-    if let Err(err) = speedylemon::run_program() {
+    if let Err(err) = speedylemon::run_test_program() {
         log::error!("Error: {:?}", err);
         std::process::exit(1);
     }
