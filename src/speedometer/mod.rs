@@ -3,6 +3,7 @@ use std::{collections::VecDeque, time::{Duration, Instant}};
 use checkpoint::Checkpoint;
 use course::Course;
 use guild_wars_handler::GW2Data;
+use racer::Racer;
 use util::euclidian_distance_3d;
 
 use anyhow::Result;
@@ -57,7 +58,7 @@ impl LemonContext {
 
     pub fn new(data: GW2Data) -> LemonContext {
         LemonContext {
-            course: Some(Course::new()),
+            course: None,
             current_checkpoint: 0usize,
             start_time: Instant::now(),
             checkpoint_times: Vec::new(),
@@ -67,6 +68,10 @@ impl LemonContext {
             time_queue: VecDeque::from(vec![0u128, 0u128]),
             gw2_data: data,
         }
+    }
+
+    pub fn racer_name(&self) -> &String {
+        &self.gw2_data.racer.name
     }
 
     pub fn x(&self) -> f32 {

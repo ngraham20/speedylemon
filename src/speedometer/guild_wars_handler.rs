@@ -62,7 +62,7 @@ impl GW2Data {
         }
         log::debug!("{}", &data.identity);
         let identity: Value = serde_json::from_str(&data.identity)?;
-        self.racer.name = identity["name"].to_string();
+        self.racer.name = identity["name"].to_string().replace("\"", "");
         Ok(())
     }
 

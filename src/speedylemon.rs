@@ -1,12 +1,13 @@
 use anyhow::{Result, Context};
 use itertools::Itertools;
-use crate::{beetlerank::BeetleRank, speedometer::util::Timestamp, track_selector::{TrackSelector, TrackSelectorState}};
+use crate::{beetlerank::{BeetleRank, Ranking}, speedometer::util::{Importable, Timestamp}, track_selector::{TrackSelector, TrackSelectorState}};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
 use feotui::{restore_terminal, Border, Padding, Render, StatefulScrollingList};
-use crate::speedometer::{checkpoint::Checkpoint, course::Course, guild_wars_handler::{self, GW2Data}, racelog::RaceLogEntry, splits::update_track_data, util::{euclidian_distance_3d, Exportable}, LemonContext, RaceState};
+use crate::speedometer::{splits::*, checkpoint::Checkpoint, course::Course, guild_wars_handler::{self, GW2Data}, racelog::RaceLogEntry, splits::update_track_data, util::{euclidian_distance_3d, Exportable}, LemonContext, RaceState};
 use std::{collections::VecDeque, fmt::Display, time::{Duration, Instant}};
 use feotui::Popup;
 use crate::{track_selector, DEBUG};
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ProgramState {
@@ -118,6 +119,7 @@ pub fn run() -> Result<()> {
     let mut beetlestatelist = StatefulScrollingList::with_items(beetlerank.get_cups()?.clone()).with_scroll_style(feotui::ScrollStyle::Paging).with_viewport_length(10);
     beetlestatelist.select(0);
     let mut cup_window: Vec<String>;
+    let mut pb: Duration = Duration::new(0,0);
 
     while state != ProgramState::Quit {
         ctx.update().context(format!("Failed to update SpeedyLemon Context Object"))?;
@@ -143,6 +145,11 @@ pub fn run() -> Result<()> {
                         // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
                         race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.as_ref().unwrap().name))).context("Failed to export race log")?;
                         update_track_data(&ctx.checkpoint_times, String::from(format!("./dev/{}-splits.toml", ctx.course.as_ref().unwrap().name))).context("Failed to export splits")?;
+                        // TODO: check to see if personal time is better than beetlerank's time for this track alert
+                        // TODO: if it's better, push the new time and log
+                        // TODO: now that we can make popup windows, change the finished view to be a popup
+                        // TODO: also, pop up when better splits
+                        // TODO: also, pop up when new best time
                     },
                     _ => {},
                 }
@@ -171,8 +178,9 @@ pub fn run() -> Result<()> {
                                 trackselstate = TrackSelectorState::SelectTrack;
                             },
                             TrackSelectorState::SelectTrack => {
-                                ctx.course = Some(BeetleRank::get_course(beetlestatelist.selected().unwrap().clone())?);
+                                ctx.course = Some(BeetleRank::get_course(&beetlestatelist.selected().unwrap())?);
                                 state = ProgramState::Speedometer;
+                                // pb = Duration::from_millis(RaceLap::import(&format!("dev/{}-splits.toml", &beetlestatelist.selected().unwrap()))?.unwrap().pb_laptime);
                             }
                             _ => {},
                         }},
@@ -196,6 +204,8 @@ pub fn run() -> Result<()> {
                 println!("Program State: {}", state);
                 println!("Debug mode: {}", DEBUG.get());
                 println!("Tick rate: {}", last_tick.elapsed().as_millis());
+                println!("Racer: {}", &ctx.racer_name());
+                // println!("Top 3: {:?}", if let Some(c) = &ctx.course { Some(&beetlerank.get_top3(&c.name, &"Ella Raevenborne".to_string())?.you) } else { None });
                 println!("---");
             }
             cup_window = beetlestatelist.viewport().pad(1).border(feotui::BorderStyle::Bold);
@@ -204,9 +214,9 @@ pub fn run() -> Result<()> {
             } else {
                 match state {
                     ProgramState::Speedometer => {
-                        println!("{}", speedometer(&mut ctx).pad(1).border(feotui::BorderStyle::Bold).render());
+                        println!("{}", speedometer(&mut ctx, &mut beetlerank)?.pad(1).border(feotui::BorderStyle::Bold).render());
                     },
-                    ProgramState::TrackSelector => println!("{}", speedometer(&mut ctx).pad(1).border(feotui::BorderStyle::Bold).popup(&cup_window, 2, 2).render()),
+                    ProgramState::TrackSelector => println!("{}", speedometer(&mut ctx, &mut beetlerank)?.pad(1).border(feotui::BorderStyle::Bold).popup(&cup_window, 2, 2).render()),
                     _ => {},
                 }
             }
@@ -233,10 +243,25 @@ pub fn run() -> Result<()> {
     Ok(())
 }
 
-fn speedometer(ctx: &mut LemonContext) -> Vec<String> {
+fn speedometer(ctx: &mut LemonContext, beetlerank: &mut BeetleRank) -> Result<Vec<String>> {
     let mut lines: Vec<String> = Vec::new();
     lines.push(format!("Track: {}", ctx.course.as_ref().unwrap().name));
+    // lines.push(format!("PB Time: {}", pb.timestamp()));
+    let ranks = beetlerank.get_top3(&ctx.course.as_ref().unwrap().name, &ctx.racer_name())?;
 
+    let local_ranks = ranks.you.as_ref().unwrap();
+    let top_ranks = &ranks.top_3;
+    let local_timestamp_padding: usize = local_ranks.iter().map(|r| r.name.graphemes(true).count()).max().unwrap();
+    let top_timestamp_padding: usize = top_ranks.iter().map(|r| r.name.graphemes(true).count()).max().unwrap();
+    let padding = usize::max(local_timestamp_padding, top_timestamp_padding);
+    for rank in top_ranks {
+        lines.push(format!("{: >2}: {: <padding$} {}", rank.rank, rank.name, rank.timestamp));
+    }
+    lines.push(format!("..."));
+    for rank in  local_ranks{
+        lines.push(format!("{: >2}: {: <padding$} {}", rank.rank, rank.name, rank.timestamp));
+    }
+    lines.push(format!("---"));
     match ctx.race_state {
         RaceState::Finished => {
             lines.push("Race Finished!".to_string());
@@ -260,6 +285,6 @@ fn speedometer(ctx: &mut LemonContext) -> Vec<String> {
             }
         }
     }
-    lines
+    Ok(lines)
     
 }

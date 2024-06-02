@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, hash::Hash, path::Path};
 use itertools::Itertools;
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
@@ -10,10 +10,10 @@ use crate::speedometer::{checkpoint::{Checkpoint, Stepname}, course::Course};
 
 #[derive(Debug, Deserialize)]
 #[serde(default)]
-struct Ranking {
+pub struct Ranking {
     #[serde(rename = "ranking")]
-    top_3: Vec<Rank>,
-    you: Option<Vec<Rank>>,
+    pub top_3: Vec<Rank>,
+    pub you: Option<Vec<Rank>>,
 }
 
 impl Default for Ranking {
@@ -28,6 +28,7 @@ impl Default for Ranking {
 pub struct BeetleRank {
     pub cups: Vec<String>,
     pub tracks: HashMap<String, Vec<String>>,
+    pub rankings: HashMap<String, Ranking>,
 }
 
 #[derive(Deserialize)]
@@ -45,6 +46,7 @@ impl BeetleRank {
         BeetleRank {
             cups: Vec::new(),
             tracks: HashMap::new(),
+            rankings: HashMap::new(),
         }
     }
 
@@ -57,7 +59,8 @@ impl BeetleRank {
         BeetleRank {
             cups: vec!["Cup 1", "Cup 2", "Cup 3", "Cup 4"]
                 .iter().map(|s| s.to_string()).collect_vec(),
-            tracks: HashMap::new()
+            tracks: HashMap::new(),
+            rankings: HashMap::new(),
         }
     }
     pub fn get_cups(&mut self) -> Result<&Vec<String>> {
@@ -71,7 +74,19 @@ impl BeetleRank {
         Ok(&self.cups)
     }
 
-    pub fn get_course(track: String) -> Result<Course> {
+    pub fn get_top3(&mut self, track: &String, user: &String) -> Result<&Ranking> {
+        let ranking = self.rankings.entry(track.clone()).or_insert_with(|| {
+            let client = reqwest::Client::builder().use_rustls_tls().build().expect("Failed to create builder");
+            let url = format!("https://www.beetlerank.com/api/top3/{}/{}", track, user);
+            let res = block_on(client.get(url).send()).expect("Failed to reach beetlerank");
+            let data: Ranking = block_on(res.json()).expect("Failed to parse JSON");
+            data
+        });
+
+        Ok(ranking)
+    }
+
+    pub fn get_course(track: &String) -> Result<Course> {
         let filepath = format!("maps/{}.csv", track);
         if Path::new(&filepath).is_file() {
             return Course::from_path(filepath);
@@ -97,7 +112,7 @@ impl BeetleRank {
         }
         checkpoints.sort_by(|a, b| a.step.partial_cmp(&b.step).unwrap());
         let course = Course {
-            name: String::from(&track),
+            name: String::from(track),
             checkpoints,
             reset,
         };
@@ -121,12 +136,12 @@ impl BeetleRank {
 #[serde(default)]
 pub struct Rank {
     #[serde(rename = "pos")]
-    rank: u32,
+    pub rank: u32,
     #[serde(rename = "time", deserialize_with = "deserialize_number_from_string")]
-    timestamp: String,
-    name: String,
+    pub timestamp: String,
+    pub name: String,
     #[serde(rename = "realtime", deserialize_with = "deserialize_number_from_string")]
-    laptime: f64,
+    pub laptime: f64,
     date: String,
     map: String,
     file: String,

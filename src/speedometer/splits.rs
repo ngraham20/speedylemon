@@ -7,8 +7,8 @@ use super::{checkpoint, util::{Exportable, Importable}};
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct RaceLap {
-    pb_laptime: u64,
-    splits: Splits,
+    pub pb_laptime: u64,
+    pub splits: Splits,
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
