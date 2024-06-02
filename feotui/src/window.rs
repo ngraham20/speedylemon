@@ -4,6 +4,7 @@ pub enum BorderStyle {
     None,
     Solid,
     Bold,
+    Ascii,
 }
 
 pub trait Border {
@@ -15,10 +16,11 @@ impl Border for Vec<String> {
         let border: Vec<&str> = match style {
             BorderStyle::Bold => "┏┓━┃┗┛",
             BorderStyle::Solid => "┌┐─│└┘",
+            BorderStyle::Ascii => "++-|++",
             BorderStyle::None => "",
         }.graphemes(true).collect();
         let mut out: Vec<String> = Vec::new();
-        let width = self.iter().map(|s| s.chars().count()).max().unwrap_or(0);
+        let width = self.iter().map(|s| s.graphemes(true).count()).max().unwrap_or(0);
 
         out.push(format!(" {}{}{} ", border[0], border[2].repeat(width), border[1]));
         for line in self {
@@ -35,7 +37,7 @@ pub trait Padding {
 
 impl Padding for Vec<String> {
     fn pad(&self, padding: usize) -> Self {
-        let width = self.iter().map(|s| s.chars().count()).max().unwrap_or(0);
+        let width = self.iter().map(|s| s.graphemes(true).count()).max().unwrap_or(0);
         let mut out: Vec<String> = Vec::new();
         for line in self {
             out.push(format!("{}{: <width$}{}", " ".repeat(padding), &line, " ".repeat(padding), width=width));
@@ -61,23 +63,26 @@ impl Popup for Vec<String> {
     fn popup(&self, lines: &Vec<String>, x: usize, y: usize) -> Self {
         // start with the unaffected lines before it
         let mut out: Vec<String> = self[0..y].to_vec();
-        let width = self.iter().map(|s| s.chars().count()).max().unwrap_or(0);
+        let width = self.iter().map(|s| s.graphemes(true).count()).max().unwrap_or(0);
 
+        println!("width: {}", width);
+        println!("x: {}", x);
         for idx in y..y+lines.len() {
             let line = &lines[idx-y];
             let length = line.graphemes(true).count();
             // draw inside the original content
             if idx < self.len() {
-                if x+length < self[idx].len() {
-                    out.push(format!("{}{}{}", &self[idx][..x], &line, &self[idx][x+length..]));
+                if x+length < self[idx].graphemes(true).count() {
+                    println!("line length: {}", length);
+                    out.push(format!("{}{}{}", &self[idx].graphemes(true).collect::<Vec<_>>()[..x].join(""), &line, &self[idx].graphemes(true).collect::<Vec<_>>()[x+length..].join("")));
                 } else {
-                    out.push(format!("{}{}", &self[idx][..x], &line));
+                    out.push(format!("{}{}", &self[idx].graphemes(true).collect::<Vec<_>>()[..x].join(""), &line));
                 }
                 
             }
             // we're drawing past the content (in height)
             else { 
-                out.push(format!("{}{}{}", " ".repeat(x), line.clone(), " ".repeat(width-x-length)));
+                out.push(format!("{}{}{}", " ".repeat(x), line.clone(), " ".repeat(width.saturating_sub(x).saturating_sub(length))));
             }
         }
 

@@ -89,7 +89,7 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
                 ProgramState::Speedometer => {
                     println!("{}", lorem_ipsum.pad(1).border(feotui::BorderStyle::Bold).render());
                 },
-                ProgramState::TrackSelector => println!("{}", lorem_ipsum.popup(&cup_window, 15, 15).pad(1).border(feotui::BorderStyle::Bold).render()),
+                ProgramState::TrackSelector => println!("{}", lorem_ipsum.pad(1).border(feotui::BorderStyle::Bold).popup(&cup_window, 56, 15).render()),
                 _ => {},
             }
             last_tick = Instant::now();
@@ -193,9 +193,9 @@ pub fn run() -> Result<()> {
             cup_window = beetlestatelist.viewport().pad(1).border(feotui::BorderStyle::Bold);
             match state {
                 ProgramState::Speedometer => {
-                    println!("{}", speedometer(&mut ctx).pad(30).border(feotui::BorderStyle::Bold).render());
+                    println!("{}", speedometer(&mut ctx).pad(1).border(feotui::BorderStyle::Bold).render());
                 },
-                ProgramState::TrackSelector => println!("{}", speedometer(&mut ctx).pad(30).popup(&cup_window, 1, 1).border(feotui::BorderStyle::Bold).render()),
+                ProgramState::TrackSelector => println!("{}", speedometer(&mut ctx).pad(1).popup(&cup_window, 1, 1).border(feotui::BorderStyle::Bold).render()),
                 _ => {},
             }
             
