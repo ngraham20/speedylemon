@@ -61,17 +61,23 @@ impl Popup for Vec<String> {
     fn popup(&self, lines: &Vec<String>, x: usize, y: usize) -> Self {
         // start with the unaffected lines before it
         let mut out: Vec<String> = self[0..y].to_vec();
+        let width = self.iter().map(|s| s.chars().count()).max().unwrap_or(0);
 
         for idx in y..y+lines.len() {
             let line = &lines[idx-y];
             let length = line.graphemes(true).count();
             // draw inside the original content
             if idx < self.len() {
-                out.push(format!("{}{}{}", &self[idx][..x], &line, &self[idx][x+length..]));
+                if x+length < self[idx].len() {
+                    out.push(format!("{}{}{}", &self[idx][..x], &line, &self[idx][x+length..]));
+                } else {
+                    out.push(format!("{}{}", &self[idx][..x], &line));
+                }
+                
             }
             // we're drawing past the content (in height)
             else { 
-                out.push(format!("{}{}", " ".repeat(x), line.clone()));
+                out.push(format!("{}{}{}", " ".repeat(x), line.clone(), " ".repeat(width-x-length)));
             }
         }
 

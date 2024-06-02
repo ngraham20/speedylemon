@@ -89,7 +89,7 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
                 ProgramState::Speedometer => {
                     println!("{}", lorem_ipsum.pad(1).border(feotui::BorderStyle::Bold).render());
                 },
-                ProgramState::TrackSelector => println!("{}", lorem_ipsum.popup(&cup_window, 5, 15).pad(1).border(feotui::BorderStyle::Bold).render()),
+                ProgramState::TrackSelector => println!("{}", lorem_ipsum.popup(&cup_window, 15, 15).pad(1).border(feotui::BorderStyle::Bold).render()),
                 _ => {},
             }
             last_tick = Instant::now();
