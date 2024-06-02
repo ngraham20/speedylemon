@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, time::{Duration, Instant}};
+use std::{collections::VecDeque, path::Path, time::{Duration, Instant}};
 
 use checkpoint::Checkpoint;
 use course::Course;
@@ -7,6 +7,8 @@ use racer::Racer;
 use util::euclidian_distance_3d;
 
 use anyhow::Result;
+
+use crate::beetlerank::BeetleRank;
 
 pub mod camera;
 pub mod checkpoint;
@@ -68,6 +70,20 @@ impl LemonContext {
             time_queue: VecDeque::from(vec![0u128, 0u128]),
             gw2_data: data,
         }
+    }
+
+    pub fn load_course(&mut self, track: String) -> Result<()> {
+        std::fs::create_dir_all("data/maps")?;
+        let filepath = format!("data/maps/{}.csv", track);
+        if Path::new(&filepath).is_file() {
+            self.course = Some(Course::from_reader(track, &mut csv::Reader::from_path(&filepath)?)?);
+            return Ok(())
+        }
+        let data = BeetleRank::get_course(&track)?;
+        let course = Course::from_reader(track, &mut csv::Reader::from_reader(data.as_bytes()))?;
+        course.export_to_path(filepath)?;
+        self.course = Some(course);
+        Ok(())
     }
 
     pub fn racer_name(&self) -> &String {

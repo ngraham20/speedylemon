@@ -86,38 +86,13 @@ impl BeetleRank {
         Ok(ranking)
     }
 
-    pub fn get_course(track: &String) -> Result<Course> {
-        let filepath = format!("maps/{}.csv", track);
-        if Path::new(&filepath).is_file() {
-            return Course::from_path(filepath);
-        }
+    pub fn get_course(track: &String) -> Result<String> {
         let client = reqwest::Client::builder().use_rustls_tls().build()?;
         let url = format!("https://www.beetlerank.com/uploads/checkpoints/{}.csv", track);
         let res = block_on(client.get(url).send())?;
         let data = block_on(res.text())?;
-        // println!("{}", data);
-        let mut reader = csv::Reader::from_reader(data.as_bytes());
-        let iter = reader.deserialize();
-        let mut checkpoints: Vec<Checkpoint> = Vec::new();
-        let mut reset: Option<Checkpoint> = None;
 
-        for record in iter {
-            let checkpoint: Checkpoint = record?;
-            match checkpoint.stepname {
-                Stepname::Reset => { reset = Some(checkpoint) },
-                Stepname::Checkpoint |
-                Stepname::Start |
-                Stepname::End => { checkpoints.push(checkpoint) },
-            }
-        }
-        checkpoints.sort_by(|a, b| a.step.partial_cmp(&b.step).unwrap());
-        let course = Course {
-            name: String::from(track),
-            checkpoints,
-            reset,
-        };
-        course.export_to_path(filepath)?;
-        Ok(course)
+        Ok(data)
     }
 
     pub fn get_tracks(&mut self, cup: String) -> Result<Vec<String>> {

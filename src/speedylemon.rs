@@ -171,14 +171,16 @@ pub fn run() -> Result<()> {
                         }},
                         KeyCode::Up => beetlestatelist.prev(),
                         KeyCode::Down => beetlestatelist.next(),
-                        KeyCode::Right => {match trackselstate {
+                        KeyCode::Right => {
+                            let track: String = beetlestatelist.selected().unwrap().clone();
+                            match trackselstate {
                             TrackSelectorState::SelectCup => {
-                                beetlestatelist.items = beetlerank.get_tracks(beetlestatelist.selected().unwrap().clone())?;
+                                beetlestatelist.items = beetlerank.get_tracks(track)?;
                                 beetlestatelist.select(0);
                                 trackselstate = TrackSelectorState::SelectTrack;
                             },
                             TrackSelectorState::SelectTrack => {
-                                ctx.course = Some(BeetleRank::get_course(&beetlestatelist.selected().unwrap())?);
+                                ctx.load_course(track)?;
                                 state = ProgramState::Speedometer;
                                 // pb = Duration::from_millis(RaceLap::import(&format!("dev/{}-splits.toml", &beetlestatelist.selected().unwrap()))?.unwrap().pb_laptime);
                             }

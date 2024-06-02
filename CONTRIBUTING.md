@@ -10,6 +10,21 @@
 
 - The checkpoint creator might be a separate program, or may be integrated# Beetlerank API
 
+
+## Backlog
+### Race Finished Popup
+- race finished screen should be a popup
+- recognize when a new time has been achieved
+- race finished screen should show new time if relavent
+- upload new best time to beetlerank with the log
+
+### Splits
+- show checkpoint splits ahead of time if available
+- show checkpoint lines before they've been crossed
+
+### Configuration
+- make the different features optional
+
 ## GET
 - MOTD: `https://www.beetlerank.com/api/info`
 - Cups: `https://www.beetlerank.com/api/cups`
