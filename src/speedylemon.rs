@@ -2,7 +2,7 @@ use anyhow::{Result, Context};
 use itertools::Itertools;
 use crate::{beetlerank::BeetleRank, track_selector::{TrackSelector, TrackSelectorState}};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
-use feotui::{restore_terminal, StatefulScrollingList, Window};
+use feotui::{restore_terminal, Border, Padding, StatefulScrollingList};
 use crate::speedometer::{checkpoint::Checkpoint, course::Course, guild_wars_handler::{self, GW2Data}, racelog::RaceLogEntry, splits::update_track_data, util::{euclidian_distance_3d, Exportable}, LemonContext, RaceState};
 use std::{collections::VecDeque, fmt::Display, time::{Duration, Instant}};
 use feotui::Popup;
@@ -39,9 +39,9 @@ pub fn run_program() -> Result<()> {
 Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit ac diam quis, accumsan lobortis enim. Phasellus vulputate enim dui, ut consectetur lacus blandit et. Curabitur congue, nunc sit amet lacinia sodales, mi mauris cursus nulla, a tempor sem neque id neque. Donec eu nisi at ante aliquam facilisis. Quisque non augue a diam commodo vehicula. Morbi condimentum nulla non leo iaculis, vel scelerisque dui congue. Fusce tincidunt neque sed tellus vestibulum facilisis. Maecenas vitae interdum sapien. Nunc in velit sapien. Aliquam at auctor dui. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Praesent in dapibus urna. Nam ornare urna eu pulvinar posuere. Pellentesque dapibus felis ac justo aliquet aliquam. Vestibulum feugiat vel augue et porttitor.";
 
     let mut trackselstate = TrackSelectorState::SelectCup;
-    let lorem_ipsum: Window = Window::new().with_lines(textwrap::wrap(mockbackground, 70).iter().map(|s| format!("{: <width$}", s.as_ref().to_string(), width = 70)).collect_vec());
+    let lorem_ipsum: Vec<String> = textwrap::wrap(mockbackground, 70).iter().map(|s| format!("{: <width$}", s.as_ref().to_string(), width = 70)).collect_vec();
 
-    let mut cup_window: Window = Window::new().with_lines(beetlestatelist.viewport()).with_border(feotui::BorderStyle::Bold).with_padding(1);    
+    let mut cup_window: Vec<String>;    
     while state != ProgramState::Quit {
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if crossterm::event::poll(timeout)? {
@@ -84,12 +84,12 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
             println!("Debug mode: {}", DEBUG.get());
             println!("Tick rate: {}", last_tick.elapsed().as_millis());
             println!("---");
-            cup_window.lines = beetlestatelist.viewport();
+            cup_window = beetlestatelist.viewport().pad(1).border(feotui::BorderStyle::Bold);
             match state {
                 ProgramState::Speedometer => {
-                    println!("{}", lorem_ipsum.build_lines().join("\n"));
+                    println!("{}", lorem_ipsum.join("\n"));
                 },
-                ProgramState::TrackSelector => println!("{}", lorem_ipsum.lines.popup(&cup_window.build_lines(), 5, 5)),
+                ProgramState::TrackSelector => println!("{}", lorem_ipsum.pad(1).border(feotui::BorderStyle::Bold).popup(&cup_window, 5, 5).join("\n")),
                 _ => {},
             }
             last_tick = Instant::now();

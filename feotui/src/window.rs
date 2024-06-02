@@ -1,4 +1,4 @@
-use crossterm::style;
+use unicode_segmentation::UnicodeSegmentation;
 
 pub enum BorderStyle {
     None,
@@ -6,69 +6,56 @@ pub enum BorderStyle {
     Bold,
 }
 
-pub struct Window {
-    pub lines: Vec<String>,
-    border: BorderStyle,
-    padding: usize,
+pub trait Border {
+    fn border(&self, style: BorderStyle) -> Self;
 }
 
-impl Window {
-    pub fn new() -> Self {
-        Window {
-            lines: Vec::new(),
-            border: BorderStyle::None,
-            padding: 1,
+impl Border for Vec<String> {
+    fn border(&self, style: BorderStyle) -> Self {
+        let border: Vec<&str> = match style {
+            BorderStyle::Bold => "┏┓━┃┗┛",
+            BorderStyle::Solid => "┌┐─│└┘",
+            BorderStyle::None => "",
+        }.graphemes(true).collect();
+        let mut out: Vec<String> = Vec::new();
+        let width = self.iter().map(|s| s.chars().count()).max().unwrap_or(0);
+
+        out.push(format!(" {}{}{} ", border[0], border[2].repeat(width), border[1]));
+        for line in self {
+            out.push(format!(" {}{}{} ", border[3], line, border[3]));
         }
-    }
-    pub fn build_lines(&self) -> Vec<String> {
-        let mut res: Vec<String> = Vec::new();
-        let width = self.lines.iter().map(|s| s.chars().count()).max().unwrap_or(0);
-        println!("width: {}", width);
-        println!("padding: {}", self.padding);
-        match self.border {
-            BorderStyle::Bold => {
-                res.push(format!(" ┏{}┓ ", "━".repeat(width+(self.padding*2))));
-                for line in &self.lines {
-                    res.push(format!(" {: <padding$}{: <width$}{: >padding$} ", "┃", &line, "┃", padding = self.padding+1, width=width));
-                }
-                res.push(format!(" ┗{}┛ ", "━".repeat(width+(self.padding*2))));
-            },
-            _ => {
-                res = self.lines.clone()
-            },
-        }
-        res
-    }
-    pub fn with_lines(mut self, lines: Vec<String>) -> Self {
-        self.lines = lines;
-        self
-    }
-    pub fn with_border(mut self, style: BorderStyle) -> Self {
-        self.border = style;
-        self
-    }
-    pub fn with_padding(mut self, padding: usize) -> Self {
-        self.padding = padding;
-        self
+        out.push(format!(" {}{}{} ", border[4], border[2].repeat(width), border[5]));
+        out
     }
 }
 
-pub trait Blit {
-    fn blit(&self);
+pub trait Padding {
+    fn pad(&self, padding: usize) -> Self;
+}
+
+impl Padding for Vec<String> {
+    fn pad(&self, padding: usize) -> Self {
+        let width = self.iter().map(|s| s.chars().count()).max().unwrap_or(0);
+        let mut out: Vec<String> = Vec::new();
+        for line in self {
+            out.push(format!("{}{: <width$}{}", " ".repeat(padding), &line, " ".repeat(padding), width=width));
+        }
+        out
+    }
 }
 
 pub trait Popup {
-    fn popup(&self, lines: &Vec<String>, x: usize, y: usize) -> String;
+    fn popup(&self, lines: &Vec<String>, x: usize, y: usize) -> Self;
 }
 
 impl Popup for Vec<String> {
-    fn popup(&self, lines: &Vec<String>, x: usize, y: usize) -> String {
+    fn popup(&self, lines: &Vec<String>, x: usize, y: usize) -> Self {
         let mut result = self.clone();
         for idx in 0..lines.len() {
             let line = &lines[idx];
             let length = line.chars().count();
             result[idx+y].replace_range(x..length+x, &line);
         }
-        result.join("\n")
+        result
     }
 }
