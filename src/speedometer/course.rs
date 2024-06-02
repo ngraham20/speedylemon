@@ -22,7 +22,7 @@ impl Course {
         }
     }
 
-    pub fn from_reader<T: std::io::Read>(track: String, reader: &mut csv::Reader<T>) -> Result<Course> {
+    pub fn from_reader<T: std::io::Read>(track: &String, reader: &mut csv::Reader<T>) -> Result<Course> {
         let iter = reader.deserialize();
         let mut checkpoints: Vec<Checkpoint> = Vec::new();
         let mut reset: Option<Checkpoint> = None;

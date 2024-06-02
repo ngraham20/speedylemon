@@ -119,7 +119,7 @@ pub fn run() -> Result<()> {
     let mut beetlestatelist = StatefulScrollingList::with_items(beetlerank.get_cups()?.clone()).with_scroll_style(feotui::ScrollStyle::Paging).with_viewport_length(10);
     beetlestatelist.select(0);
     let mut cup_window: Vec<String>;
-    let mut pb: Duration = Duration::new(0,0);
+    let mut pb: Option<RaceLap> = None;
 
     while state != ProgramState::Quit {
         ctx.update().context(format!("Failed to update SpeedyLemon Context Object"))?;
@@ -143,8 +143,8 @@ pub fn run() -> Result<()> {
                 match ctx.race_state {
                     RaceState::Finished => {
                         // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
-                        race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.as_ref().unwrap().name))).context("Failed to export race log")?;
-                        update_track_data(&ctx.checkpoint_times, String::from(format!("./dev/{}-splits.toml", ctx.course.as_ref().unwrap().name))).context("Failed to export splits")?;
+                        race_log.export(String::from(format!("./data/logs/{}.csv", ctx.course.as_ref().unwrap().name))).context("Failed to export race log")?;
+                        update_track_data(&ctx.checkpoint_times, String::from(format!("./data/splits/{}.toml", ctx.course.as_ref().unwrap().name))).context("Failed to export splits")?;
                         // TODO: check to see if personal time is better than beetlerank's time for this track alert
                         // TODO: if it's better, push the new time and log
                         // TODO: now that we can make popup windows, change the finished view to be a popup
@@ -180,7 +180,9 @@ pub fn run() -> Result<()> {
                                 trackselstate = TrackSelectorState::SelectTrack;
                             },
                             TrackSelectorState::SelectTrack => {
-                                ctx.load_course(track)?;
+                                ctx.load_course(&track)?;
+                                std::fs::create_dir_all("data/splits")?;
+                                pb = RaceLap::import(&format!("data/splits/{}.toml", track))?;                               
                                 state = ProgramState::Speedometer;
                             }
                             _ => {},
@@ -212,7 +214,7 @@ pub fn run() -> Result<()> {
             if let None = &ctx.course {
                 println!("{}", cup_window.pad(1).border(feotui::BorderStyle::Bold).render());
             } else {
-                let primary_window = speedometer(&mut ctx, &mut beetlerank)?.pad(1).border(feotui::BorderStyle::Bold);
+                let primary_window = speedometer(&mut ctx, &mut beetlerank, &pb)?.pad(1).border(feotui::BorderStyle::Bold);
                 println!("{}", match state {
                     ProgramState::Speedometer => {
                         match ctx.race_state {
@@ -259,7 +261,7 @@ fn race_finished(ctx: &LemonContext, beetlerank: &mut BeetleRank) -> Result<Vec<
     Ok(lines)
 }
 
-fn speedometer(ctx: &mut LemonContext, beetlerank: &mut BeetleRank) -> Result<Vec<String>> {
+fn speedometer(ctx: &mut LemonContext, beetlerank: &mut BeetleRank, pb: &Option<RaceLap>) -> Result<Vec<String>> {
     let mut lines: Vec<String> = Vec::new();
     lines.push(format!("Track: {}", ctx.course.as_ref().unwrap().name));
     // lines.push(format!("PB Time: {}", pb.timestamp()));
@@ -287,22 +289,29 @@ fn speedometer(ctx: &mut LemonContext, beetlerank: &mut BeetleRank) -> Result<Ve
     lines.push(format!("Speed: {:?}", ctx.filtered_speed()));
     if let Some(c) = &ctx.course {
         lines.push("----- Checkpoint Times -----".to_string());
-        for idx in 0..c.checkpoints.len() {
+        for idx in 1..c.checkpoints.len() {
             let blank = Duration::new(0,0);
             let dur = ctx.checkpoint_times.get(idx).unwrap_or(&blank);
+            let cpdelta = dur.saturating_sub(*ctx.checkpoint_times.get(idx-1).unwrap_or(&Duration::new(0,0)));
+            let mut delta: String = String::new();
+            if let Some(lap) = pb {
+                // let deltas: Vec<String> = lap.splits.pb.iter().enumerate().map(|(i, s)| if *s > dur.as_millis() as u64 {
+                //     Duration::from_millis(s.saturating_sub(dur.as_millis() as u64)).timestamp()
+                // } else {
+                //     Duration::from_millis((dur.as_millis() as u64).saturating_sub(*s)).timestamp()
+                // }).collect_vec();
+                if let Some(split) = lap.splits.pb.get(idx-1) {
+                    if *split > cpdelta.as_millis() as u64 {
+                        delta = format!("-{}", Duration::from_millis(split.saturating_sub(cpdelta.as_millis() as u64)).timestamp())
+                    } else {
+                        delta = format!("+{}", Duration::from_millis((cpdelta.as_millis() as u64).saturating_sub(*split)).timestamp())
+                    }
+                }
+            }
         
-            lines.push(format!("Checkpoint: {}, Time: {}, Delta: {}", idx, dur.timestamp(), match idx {
-                0 => dur.timestamp(),
-                _ => dur.saturating_sub(*ctx.checkpoint_times.get(idx-1).unwrap_or(&blank)).timestamp()
-            }));
+            lines.push(format!("Checkpoint: {: >2}, Time: {}, PB: {: <9}", idx, dur.timestamp(), delta));
         }
     }
-    // for (idx, dur) in ctx.checkpoint_times.iter().enumerate() {
-    //     lines.push(format!("Checkpoint: {}, Time: {}, Delta: {}", idx, dur.timestamp(), match idx {
-    //         0 => dur.timestamp(),
-    //         _ => dur.saturating_sub(ctx.checkpoint_times[idx-1]).timestamp()
-    //     }))
-    // }
     Ok(lines)
     
 }

@@ -72,7 +72,7 @@ impl LemonContext {
         }
     }
 
-    pub fn load_course(&mut self, track: String) -> Result<()> {
+    pub fn load_course(&mut self, track: &String) -> Result<()> {
         std::fs::create_dir_all("data/maps")?;
         let filepath = format!("data/maps/{}.csv", track);
         if Path::new(&filepath).is_file() {
