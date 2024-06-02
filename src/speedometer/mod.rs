@@ -39,7 +39,7 @@ impl TimePosition {
 }
 
 pub struct LemonContext {
-    pub course: Course,
+    pub course: Option<Course>,
     pub current_checkpoint: usize,
     pub start_time: Instant,
     pub checkpoint_times: Vec<Duration>,
@@ -57,7 +57,7 @@ impl LemonContext {
 
     pub fn new(data: GW2Data) -> LemonContext {
         LemonContext {
-            course: Course::new(),
+            course: Some(Course::new()),
             current_checkpoint: 0usize,
             start_time: Instant::now(),
             checkpoint_times: Vec::new(),
@@ -94,13 +94,13 @@ impl LemonContext {
     }
 
     pub fn peek_current_checkpoint(&self) -> Checkpoint {
-        self.course.checkpoints[self.current_checkpoint]
+        self.course.as_ref().unwrap().checkpoints[self.current_checkpoint]
     }
 
     pub fn update_state(&mut self) {
         self.race_state = match self.current_checkpoint {
             0 => RaceState::WaitingToStart,
-            cp if cp < self.course.checkpoints.len() => RaceState::Racing ,
+            cp if cp < self.course.as_ref().unwrap().checkpoints.len() => RaceState::Racing ,
             _ => RaceState::Finished,
         }
     }
@@ -117,7 +117,7 @@ impl LemonContext {
     }
 
     pub fn is_in_current_checkpoint(&self) -> bool {
-        if self.current_checkpoint < self.course.checkpoints.len() {
+        if self.current_checkpoint < self.course.as_ref().unwrap().checkpoints.len() {
             if self.current_cp_distance() < self.peek_current_checkpoint().radius as f32 {
                 return true
             }
@@ -127,7 +127,7 @@ impl LemonContext {
     }
 
     pub fn is_in_reset_checkpoint(&self) -> bool {
-        if let (Some(dst), Some(cp)) = (self.reset_cp_distance(), self.course.reset) {
+        if let (Some(dst), Some(cp)) = (self.reset_cp_distance(), self.course.as_ref().unwrap().reset) {
             if dst < cp.radius as f32 {
                 return true
             }
@@ -137,12 +137,12 @@ impl LemonContext {
     }
 
     pub fn current_cp_distance(&self) -> f32 {
-        let checkpoint = &self.course.checkpoints[self.current_checkpoint];
+        let checkpoint = &self.course.as_ref().unwrap().checkpoints[self.current_checkpoint];
         euclidian_distance_3d(&self.gw2_data.racer.position, &checkpoint.point())
     }
 
     pub fn reset_cp_distance(&self) -> Option<f32> {
-        if let Some(reset) = &self.course.reset {
+        if let Some(reset) = &self.course.as_ref().unwrap().reset {
             return Some(euclidian_distance_3d(&self.gw2_data.racer.position, &reset.point()))
         }
 

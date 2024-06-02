@@ -101,12 +101,12 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
 pub fn run() -> Result<()> {
     // feotui::init_terminal()?;
     let mut ctx = LemonContext::new(guild_wars_handler::GW2Data::new()?);
-    ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
+    // ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
     ctx.init_gw2_data()?;
     let tick_rate = Duration::from_millis(10);
     let log_delta = Duration::from_millis(30);
 
-    let mut state = ProgramState::Speedometer;
+    let mut state = ProgramState::TrackSelector;
     let mut last_tick = Instant::now();
     let mut last_log = Instant::now();
     let mut race_log: Vec<RaceLogEntry> = Vec::new();
@@ -122,28 +122,30 @@ pub fn run() -> Result<()> {
     while state != ProgramState::Quit {
         ctx.update().context(format!("Failed to update SpeedyLemon Context Object"))?;
 
-        // restart course if needed
-        if ctx.is_in_reset_checkpoint() {
-            ctx.restart_course();
-        }
-        
-        // collect checkpoint if needed
-        if ctx.is_in_current_checkpoint() {
-            ctx.collect_checkpoint();
-        }
-
-        old_racestate = ctx.race_state;
-        ctx.update_state();
-
-        // trigger events if the state has changed
-        if ctx.race_state != old_racestate {
-            match ctx.race_state {
-                RaceState::Finished => {
-                    // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
-                    race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.name))).context("Failed to export race log")?;
-                    update_track_data(&ctx.checkpoint_times, String::from(format!("./dev/{}-splits.toml", ctx.course.name))).context("Failed to export splits")?;
-                },
-                _ => {},
+        if let Some(_) = &ctx.course {
+            // restart course if needed
+            if ctx.is_in_reset_checkpoint() {
+                ctx.restart_course();
+            }
+            
+            // collect checkpoint if needed
+            if ctx.is_in_current_checkpoint() {
+                ctx.collect_checkpoint();
+            }
+    
+            old_racestate = ctx.race_state;
+            ctx.update_state();
+    
+            // trigger events if the state has changed
+            if ctx.race_state != old_racestate {
+                match ctx.race_state {
+                    RaceState::Finished => {
+                        // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
+                        race_log.export(String::from(format!("./dev/{}-racelog.csv", ctx.course.as_ref().unwrap().name))).context("Failed to export race log")?;
+                        update_track_data(&ctx.checkpoint_times, String::from(format!("./dev/{}-splits.toml", ctx.course.as_ref().unwrap().name))).context("Failed to export splits")?;
+                    },
+                    _ => {},
+                }
             }
         }
 
@@ -168,6 +170,10 @@ pub fn run() -> Result<()> {
                                 beetlestatelist.select(0);
                                 trackselstate = TrackSelectorState::SelectTrack;
                             },
+                            TrackSelectorState::SelectTrack => {
+                                ctx.course = Some(BeetleRank::get_course(beetlestatelist.selected().unwrap().clone())?);
+                                state = ProgramState::Speedometer;
+                            }
                             _ => {},
                         }},
                         KeyCode::Left => { match trackselstate {
@@ -186,17 +192,23 @@ pub fn run() -> Result<()> {
 
         if last_tick.elapsed() >= tick_rate {
             print!("{esc}[2J{esc}[1;1H", esc=27 as char);
-            println!("Program State: {}", state);
-            println!("Debug mode: {}", DEBUG.get());
-            println!("Tick rate: {}", last_tick.elapsed().as_millis());
-            println!("---");
+            if DEBUG.get() {
+                println!("Program State: {}", state);
+                println!("Debug mode: {}", DEBUG.get());
+                println!("Tick rate: {}", last_tick.elapsed().as_millis());
+                println!("---");
+            }
             cup_window = beetlestatelist.viewport().pad(1).border(feotui::BorderStyle::Bold);
-            match state {
-                ProgramState::Speedometer => {
-                    println!("{}", speedometer(&mut ctx).pad(1).border(feotui::BorderStyle::Bold).render());
-                },
-                ProgramState::TrackSelector => println!("{}", speedometer(&mut ctx).pad(1).border(feotui::BorderStyle::Bold).popup(&cup_window, 2, 2).render()),
-                _ => {},
+            if let None = &ctx.course {
+                println!("{}", cup_window.pad(1).border(feotui::BorderStyle::Bold).render());
+            } else {
+                match state {
+                    ProgramState::Speedometer => {
+                        println!("{}", speedometer(&mut ctx).pad(1).border(feotui::BorderStyle::Bold).render());
+                    },
+                    ProgramState::TrackSelector => println!("{}", speedometer(&mut ctx).pad(1).border(feotui::BorderStyle::Bold).popup(&cup_window, 2, 2).render()),
+                    _ => {},
+                }
             }
             
             last_tick = Instant::now();
@@ -223,7 +235,7 @@ pub fn run() -> Result<()> {
 
 fn speedometer(ctx: &mut LemonContext) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
-    lines.push(format!("Track: {}", ctx.course.name));
+    lines.push(format!("Track: {}", ctx.course.as_ref().unwrap().name));
 
     match ctx.race_state {
         RaceState::Finished => {
@@ -233,7 +245,7 @@ fn speedometer(ctx: &mut LemonContext) -> Vec<String> {
         _ => {
             
             lines.push(format!("Checkpoint: {}", ctx.current_checkpoint));
-            lines.push(format!("Distance to next checkpoint: {:.4}", if ctx.current_checkpoint < ctx.course.checkpoints.len() {
+            lines.push(format!("Distance to next checkpoint: {:.4}", if ctx.current_checkpoint < ctx.course.as_ref().unwrap().checkpoints.len() {
                 ctx.current_cp_distance()} else {
                     -1.0
                 }));

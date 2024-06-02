@@ -75,8 +75,6 @@ impl<T: Clone + Display> StatefulScrollingList<T> {
     }
 
     pub fn viewport(&self) -> Vec<String> {
-        println!("offset: {}", self.offset);
-        println!("selected: {}", self.selected.unwrap());
         self.items[self.offset..usize::min(self.viewport_length+self.offset, self.items.len())].iter().enumerate()
             .map(|(idx, line)| if let Some(sel_idx) = self.selected {
                 if idx+self.offset == sel_idx {
