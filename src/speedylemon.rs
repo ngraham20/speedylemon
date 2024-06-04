@@ -1,4 +1,5 @@
 use anyhow::{Result, Context};
+use chrono::Utc;
 use itertools::Itertools;
 use crate::{beetlerank::BeetleRank, speedometer::{checkpoint::Stepname, util::{Importable, Timestamp}}, track_selector::TrackSelectorState};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
@@ -127,6 +128,21 @@ pub fn run() -> Result<()> {
     while state != ProgramState::Quit {
         ctx.update().context(format!("Failed to update SpeedyLemon Context Object"))?;
 
+        if last_log.elapsed() >= log_delta {
+            last_log = Instant::now();
+            race_log.push(RaceLogEntry {
+                x: ctx.x(),
+                y: ctx.y(),
+                z: ctx.z(),
+                speed: ctx.filtered_speed() as f32,
+                cam_angle: 0.0,
+                beetle_angle: 0.0,
+                timestamp: ctx.start_time.elapsed().as_millis() as f64,
+                acceleration: 0.0,
+                map_angle: 0.0,
+            });
+        }
+
         if let Some(_) = &ctx.selected_course {
             // restart course if needed
             if ctx.is_in_reset_checkpoint() {
@@ -146,7 +162,8 @@ pub fn run() -> Result<()> {
                 match ctx.race_state {
                     RaceState::Finished => {
                         // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
-                        race_log.export(String::from(format!("./data/logs/{}.csv", ctx.selected_course.as_ref().unwrap().name))).context("Failed to export race log")?;
+                        let now_utc = Utc::now();
+                        race_log.export(String::from(format!("./data/logs/{}-{}.csv", ctx.selected_course.as_ref().unwrap().name, now_utc))).context("Failed to export race log")?;
                         pb = Some(update_track_data(&ctx.checkpoint_times, String::from(format!("./data/splits/{}.toml", ctx.selected_course.as_ref().unwrap().name))).context("Failed to export splits")?);
                         // TODO: check to see if personal time is better than beetlerank's time for this track alert
                         // TODO: if it's better, push the new time and log
@@ -286,20 +303,7 @@ pub fn run() -> Result<()> {
             
             last_tick = Instant::now();
         }
-        if last_log.elapsed() >= log_delta {
-            last_log = Instant::now();
-            race_log.push(RaceLogEntry {
-                x: ctx.x(),
-                y: ctx.y(),
-                z: ctx.z(),
-                speed: ctx.filtered_speed() as f32,
-                cam_angle: 0.0,
-                beetle_angle: 0.0,
-                timestamp: ctx.start_time.elapsed().as_millis() as f64,
-                acceleration: 0.0,
-                map_angle: 0.0,
-            });
-        }
+        
     }
 
     feotui::restore_terminal()?;
@@ -377,12 +381,15 @@ fn speedometer(ctx: &mut RaceContext, beetlerank: &mut BeetleRank, pb: &Option<R
         for idx in 1..c.checkpoints.len() {
             let blank = Duration::new(0,0);
             let dur = ctx.checkpoint_times.get(idx).unwrap_or(&blank);
-            let cpdelta = dur.saturating_sub(*ctx.checkpoint_times.get(idx-1).unwrap_or(&Duration::new(0,0)));
+            let cpdelta = dur.saturating_sub(*ctx.checkpoint_times.get(idx.saturating_sub(1)).unwrap_or(&Duration::new(0,0)));
             let mut delta: String = String::new();
             if let Some(lap) = pb {
                 // BUG: since the pb is updated immediately, then reloaded immediately, the delta will suddenly be 00:00:000 when finishing a lap with a new best time
-                if let Some(split) = lap.splits.pb.get(idx-1) {
-                    if *split > cpdelta.as_millis() as u64 {
+                if let Some(split) = lap.splits.pb.get(idx.saturating_sub(1)) {
+                    if cpdelta == blank {
+                        delta = "".to_string();
+                    }
+                    else if *split > cpdelta.as_millis() as u64 {
                         delta = format!("-{}", Duration::from_millis(split.saturating_sub(cpdelta.as_millis() as u64)).timestamp())
                     } else {
                         delta = format!("+{}", Duration::from_millis((cpdelta.as_millis() as u64).saturating_sub(*split)).timestamp())
@@ -390,7 +397,7 @@ fn speedometer(ctx: &mut RaceContext, beetlerank: &mut BeetleRank, pb: &Option<R
                 }
             }
         
-            lines.push(format!("Checkpoint: {: >2}, Time: {}, PB: {: <9}", idx, dur.timestamp(), delta));
+            lines.push(format!("Checkpoint: {: >2}, Time: {: <9}, PB: {: <9}", idx, if *dur > blank { dur.timestamp() } else { "".to_string() }, delta));
         }
     }
     Ok(lines)
