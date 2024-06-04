@@ -5,7 +5,7 @@
 Designed off of https://github.com/killer415tv/gw2_speedometer as a base
 
 # Why the re-write?
-The original speedometer written in python and is fairly complex. It could use a bit of a tune-up and code re-organization so that new features can more easily be added. Time for Rust!
+Originally, this wasn't actually intended to be a speedometer! I wanted to write a LiveSplit-like system that could track checkpoints individually and inform me which checkpoints I was having trouble with. I tried adding that functionality to Killer's original speedometer, but I've always enjoyed re-inventing the wheel, so here we are! The original speedometer written in python and is fairly complex. It could use a bit of a tune-up and code re-organization so that new features can more easily be added. Time for Rust!
 
 # Features
 ## Display racer speed
