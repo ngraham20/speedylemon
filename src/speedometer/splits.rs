@@ -1,9 +1,9 @@
-use std::{fs::{create_dir_all, File}, path::Path, io::Write, time::Duration};
+use std::{fs::create_dir_all, path::Path, time::Duration};
 
 use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
 
-use super::{checkpoint, util::{Exportable, Importable}};
+use super::util::{Exportable, Importable};
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct RaceLap {

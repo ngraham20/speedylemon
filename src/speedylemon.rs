@@ -3,7 +3,7 @@ use itertools::Itertools;
 use crate::{beetlerank::{BeetleRank, Ranking}, speedometer::{checkpoint::Stepname, util::{Importable, Timestamp}}, track_selector::{TrackSelector, TrackSelectorState}};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
 use feotui::{restore_terminal, Border, Padding, Render, StatefulScrollingList};
-use crate::speedometer::{splits::*, checkpoint::Checkpoint, course::Course, guild_wars_handler::{self, GW2Data}, racelog::RaceLogEntry, splits::update_track_data, util::{euclidian_distance_3d, Exportable}, LemonContext, RaceState};
+use crate::speedometer::{splits::*, checkpoint::Checkpoint, course::Course, guild_wars_handler::{self, GW2Data}, racelog::RaceLogEntry, splits::update_track_data, util::{euclidian_distance_3d, Exportable}, RaceContext, RaceState};
 use std::{collections::VecDeque, fmt::Display, time::{Duration, Instant}};
 use feotui::Popup;
 use crate::{track_selector, DEBUG};
@@ -103,7 +103,7 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
 
 pub fn run() -> Result<()> {
     // feotui::init_terminal()?;
-    let mut ctx = LemonContext::new(guild_wars_handler::GW2Data::new()?);
+    let mut ctx = RaceContext::new(guild_wars_handler::GW2Data::new()?);
     // ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
     ctx.init_gw2_data()?;
     let tick_rate = Duration::from_millis(10);
@@ -127,7 +127,7 @@ pub fn run() -> Result<()> {
     while state != ProgramState::Quit {
         ctx.update().context(format!("Failed to update SpeedyLemon Context Object"))?;
 
-        if let Some(_) = &ctx.course {
+        if let Some(_) = &ctx.selected_course {
             // restart course if needed
             if ctx.is_in_reset_checkpoint() {
                 ctx.restart_course();
@@ -146,8 +146,8 @@ pub fn run() -> Result<()> {
                 match ctx.race_state {
                     RaceState::Finished => {
                         // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
-                        race_log.export(String::from(format!("./data/logs/{}.csv", ctx.course.as_ref().unwrap().name))).context("Failed to export race log")?;
-                        update_track_data(&ctx.checkpoint_times, String::from(format!("./data/splits/{}.toml", ctx.course.as_ref().unwrap().name))).context("Failed to export splits")?;
+                        race_log.export(String::from(format!("./data/logs/{}.csv", ctx.selected_course.as_ref().unwrap().name))).context("Failed to export race log")?;
+                        update_track_data(&ctx.checkpoint_times, String::from(format!("./data/splits/{}.toml", ctx.selected_course.as_ref().unwrap().name))).context("Failed to export splits")?;
                         // TODO: check to see if personal time is better than beetlerank's time for this track alert
                         // TODO: if it's better, push the new time and log
                         // TODO: now that we can make popup windows, change the finished view to be a popup
@@ -202,7 +202,7 @@ pub fn run() -> Result<()> {
                         KeyCode::Char('e') => { match state {
                             ProgramState::TrackCreator => {
                                 std::fs::create_dir_all("data/custom_courses")?;
-                                creating_course.export_to_path(format!("data/custom_courses/created-course.csv"))?;
+                                creating_course.export(format!("data/custom_courses/created-course.csv"))?;
                             },
                             _ => {},
                         }},
@@ -253,7 +253,7 @@ pub fn run() -> Result<()> {
                 println!("---");
             }
             cup_window = beetlestatelist.viewport().pad(1).border(feotui::BorderStyle::Bold);
-            if let None = &ctx.course {
+            if let None = &ctx.selected_course {
                 println!("{}", cup_window.pad(1).border(feotui::BorderStyle::Bold).render());
             } else {
                 let primary_window = speedometer(&mut ctx, &mut beetlerank, &pb)?.pad(1).border(feotui::BorderStyle::Bold);
@@ -292,12 +292,12 @@ pub fn run() -> Result<()> {
     Ok(())
 }
 
-fn race_finished(ctx: &LemonContext, beetlerank: &mut BeetleRank) -> Result<Vec<String>> {
+fn race_finished(ctx: &RaceContext, beetlerank: &mut BeetleRank) -> Result<Vec<String>> {
     let mut lines: Vec<String> = Vec::new();
     lines.push("Race Finished!".to_string());
     let laptime = ctx.checkpoint_times.last().unwrap();
     let best_time = (&beetlerank
-        .get_top3(&ctx.course.as_ref().unwrap().name, &ctx.racer_name())?
+        .get_top3(&ctx.selected_course.as_ref().unwrap().name, &ctx.racer_name())?
         .you.as_ref().unwrap()[1].laptime * 1000f64) as u64;
     lines.push(format!("Best Time: {}", Duration::from_millis(best_time).timestamp()));
     lines.push(format!("Lap Time: {}", laptime.timestamp()));
@@ -317,11 +317,9 @@ fn track_creator(course: &Course) -> Vec<String> {
     lines
 }
 
-fn speedometer(ctx: &mut LemonContext, beetlerank: &mut BeetleRank, pb: &Option<RaceLap>) -> Result<Vec<String>> {
+fn rank(ctx: &mut RaceContext, beetlerank: &mut BeetleRank) -> Result<Vec<String>> {
     let mut lines: Vec<String> = Vec::new();
-    lines.push(format!("Track: {}", ctx.course.as_ref().unwrap().name));
-    // lines.push(format!("PB Time: {}", pb.timestamp()));
-    let ranks = beetlerank.get_top3(&ctx.course.as_ref().unwrap().name, &ctx.racer_name())?;
+    let ranks = beetlerank.get_top3(&ctx.selected_course.as_ref().unwrap().name, &ctx.racer_name())?;
 
     let local_ranks = ranks.you.as_ref().unwrap();
     let top_ranks = &ranks.top_3;
@@ -335,15 +333,24 @@ fn speedometer(ctx: &mut LemonContext, beetlerank: &mut BeetleRank, pb: &Option<
     for rank in  local_ranks{
         lines.push(format!("{: >2}: {: <padding$} {}", rank.rank, rank.name, rank.timestamp));
     }
+    Ok(lines)
+}
+
+fn speedometer(ctx: &mut RaceContext, beetlerank: &mut BeetleRank, pb: &Option<RaceLap>) -> Result<Vec<String>> {
+    let mut lines: Vec<String> = Vec::new();
+    lines.push(format!("Track: {}", ctx.selected_course.as_ref().unwrap().name));
+    
+    lines.append(&mut rank(ctx, beetlerank)?);
+    
     lines.push(format!("---"));
     lines.push(format!("Checkpoint: {}", ctx.current_checkpoint));
-    lines.push(format!("Distance to next checkpoint: {:.4}", if ctx.current_checkpoint < ctx.course.as_ref().unwrap().checkpoints.len() {
+    lines.push(format!("Distance to next checkpoint: {:.4}", if ctx.current_checkpoint < ctx.selected_course.as_ref().unwrap().checkpoints.len() {
         ctx.current_cp_distance()} else {
             -1.0
         }));
     lines.push(format!("Distance to reset checkpoint: {:.4}", ctx.reset_cp_distance().unwrap_or(-1.0)));
     lines.push(format!("Speed: {:?}", ctx.filtered_speed()));
-    if let Some(c) = &ctx.course {
+    if let Some(c) = &ctx.selected_course {
         lines.push("----- Checkpoint Times -----".to_string());
         for idx in 1..c.checkpoints.len() {
             let blank = Duration::new(0,0);
