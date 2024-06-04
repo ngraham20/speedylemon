@@ -1,12 +1,12 @@
 use anyhow::{Result, Context};
 use itertools::Itertools;
-use crate::{beetlerank::{BeetleRank, Ranking}, speedometer::{checkpoint::Stepname, util::{Importable, Timestamp}}, track_selector::{TrackSelector, TrackSelectorState}};
+use crate::{beetlerank::BeetleRank, speedometer::{checkpoint::Stepname, util::{Importable, Timestamp}}, track_selector::TrackSelectorState};
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
-use feotui::{restore_terminal, Border, Padding, Render, StatefulScrollingList};
-use crate::speedometer::{splits::*, checkpoint::Checkpoint, course::Course, guild_wars_handler::{self, GW2Data}, racelog::RaceLogEntry, splits::update_track_data, util::{euclidian_distance_3d, Exportable}, RaceContext, RaceState};
-use std::{collections::VecDeque, fmt::Display, time::{Duration, Instant}};
+use feotui::{Border, Padding, Render, StatefulScrollingList};
+use crate::speedometer::{splits::*, checkpoint::Checkpoint, course::Course, guild_wars_handler::{self}, racelog::RaceLogEntry, splits::update_track_data, util::Exportable, RaceContext, RaceState};
+use std::{fmt::Display, fs, path::Path, process::exit, time::{Duration, Instant}};
 use feotui::Popup;
-use crate::{track_selector, DEBUG};
+use crate::DEBUG;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(PartialEq, Clone, Copy)]
@@ -62,7 +62,7 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
                         KeyCode::Down => beetlestatelist.next(),
                         KeyCode::Right => {match trackselstate {
                             TrackSelectorState::SelectCup => {
-                                beetlestatelist.items = beetlerank.get_tracks(beetlestatelist.selected().unwrap().clone())?;
+                                beetlestatelist.items = beetlerank.get_tracks(&beetlestatelist.selected().unwrap().clone())?;
                                 beetlestatelist.select(0);
                                 trackselstate = TrackSelectorState::SelectTrack;
                             },
@@ -102,7 +102,7 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
 }
 
 pub fn run() -> Result<()> {
-    // feotui::init_terminal()?;
+    feotui::init_terminal()?;
     let mut ctx = RaceContext::new(guild_wars_handler::GW2Data::new()?);
     // ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
     ctx.init_gw2_data()?;
@@ -147,7 +147,7 @@ pub fn run() -> Result<()> {
                     RaceState::Finished => {
                         // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
                         race_log.export(String::from(format!("./data/logs/{}.csv", ctx.selected_course.as_ref().unwrap().name))).context("Failed to export race log")?;
-                        update_track_data(&ctx.checkpoint_times, String::from(format!("./data/splits/{}.toml", ctx.selected_course.as_ref().unwrap().name))).context("Failed to export splits")?;
+                        pb = Some(update_track_data(&ctx.checkpoint_times, String::from(format!("./data/splits/{}.toml", ctx.selected_course.as_ref().unwrap().name))).context("Failed to export splits")?);
                         // TODO: check to see if personal time is better than beetlerank's time for this track alert
                         // TODO: if it's better, push the new time and log
                         // TODO: now that we can make popup windows, change the finished view to be a popup
@@ -214,17 +214,31 @@ pub fn run() -> Result<()> {
                         KeyCode::Up => beetlestatelist.prev(),
                         KeyCode::Down => beetlestatelist.next(),
                         KeyCode::Right => {
-                            let track: String = beetlestatelist.selected().unwrap().clone();
+                            let selected: String = beetlestatelist.selected().unwrap().clone();
                             match trackselstate {
                             TrackSelectorState::SelectCup => {
-                                beetlestatelist.items = beetlerank.get_tracks(track)?;
+                                ctx.selected_cup = Some(selected.clone());
+                                if selected == "CUSTOM TRACKS".to_string() {
+                                    fs::create_dir_all(Path::new("data/courses/custom_courses")).context("Failed to create custom_courses directory")?;
+                                    fs::create_dir_all(Path::new("data/splits/custom_courses")).context("Failed to create custom_courses directory")?;
+
+                                    let paths = fs::read_dir("data/courses/custom_courses").unwrap();
+                                    beetlestatelist.items = paths.into_iter().map(|p| {
+                                        let path = p.unwrap().path();
+                                        let mut components = path.components();
+                                        components.next();
+                                        components.next();
+                                        components.as_path().with_extension("").to_string_lossy().to_string()
+                                    }).collect_vec();
+                                } else { beetlestatelist.items = beetlerank.get_tracks(&selected)?; }
+                                // BUG: if custom tracks is empty, selecting 0 crashes
                                 beetlestatelist.select(0);
                                 trackselstate = TrackSelectorState::SelectTrack;
                             },
                             TrackSelectorState::SelectTrack => {
-                                ctx.load_course(&track)?;
+                                ctx.load_course(&selected)?;
                                 std::fs::create_dir_all("data/splits")?;
-                                pb = RaceLap::import(&format!("data/splits/{}.toml", track))?;                               
+                                pb = RaceLap::import(&format!("data/splits/{}.toml", selected))?;                         
                                 state = ProgramState::Speedometer;
                             }
                             _ => {},
@@ -260,7 +274,7 @@ pub fn run() -> Result<()> {
                 println!("{}", match state {
                     ProgramState::Speedometer => {
                         match ctx.race_state {
-                            RaceState::Finished => primary_window.popup(&race_finished(&ctx, &mut beetlerank)?.pad(1).border(feotui::BorderStyle::Bold), 2, 2).render(),
+                            RaceState::Finished => primary_window.popup(&race_finished(&ctx, &mut beetlerank, &pb)?.pad(1).border(feotui::BorderStyle::Bold), 2, 2).render(),
                             _ => primary_window.render()
                         }
                     },
@@ -288,18 +302,24 @@ pub fn run() -> Result<()> {
         }
     }
 
-    // restore_terminal()?;
+    feotui::restore_terminal()?;
     Ok(())
 }
 
-fn race_finished(ctx: &RaceContext, beetlerank: &mut BeetleRank) -> Result<Vec<String>> {
+fn race_finished(ctx: &RaceContext, beetlerank: &mut BeetleRank, pb: &Option<RaceLap>) -> Result<Vec<String>> {
     let mut lines: Vec<String> = Vec::new();
     lines.push("Race Finished!".to_string());
     let laptime = ctx.checkpoint_times.last().unwrap();
-    let best_time = (&beetlerank
-        .get_top3(&ctx.selected_course.as_ref().unwrap().name, &ctx.racer_name())?
-        .you.as_ref().unwrap()[1].laptime * 1000f64) as u64;
-    lines.push(format!("Best Time: {}", Duration::from_millis(best_time).timestamp()));
+    if ctx.selected_cup != Some("CUSTOM TRACKS".to_string()) {
+        let best_time = (&beetlerank
+            .get_top3(&ctx.selected_course.as_ref().unwrap().name, &ctx.racer_name())?
+            .you.as_ref().unwrap()[1].laptime * 1000f64) as u64;
+        lines.push(format!("Beetlerank Best Time: {}", Duration::from_millis(best_time).timestamp()));
+    }
+    if let Some(rl) = pb {
+        lines.push(format!("Local Best Time: {}", Duration::from_millis(rl.pb_laptime).timestamp()));
+    }
+    
     lines.push(format!("Lap Time: {}", laptime.timestamp()));
     Ok(lines)
 }
@@ -340,7 +360,9 @@ fn speedometer(ctx: &mut RaceContext, beetlerank: &mut BeetleRank, pb: &Option<R
     let mut lines: Vec<String> = Vec::new();
     lines.push(format!("Track: {}", ctx.selected_course.as_ref().unwrap().name));
     
-    lines.append(&mut rank(ctx, beetlerank)?);
+    if ctx.selected_cup != Some("CUSTOM TRACKS".to_string()) {
+        lines.append(&mut rank(ctx, beetlerank)?);
+    }
     
     lines.push(format!("---"));
     lines.push(format!("Checkpoint: {}", ctx.current_checkpoint));

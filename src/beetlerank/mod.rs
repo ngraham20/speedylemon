@@ -70,7 +70,7 @@ impl BeetleRank {
             let res = block_on(client.get(url).send())?;
             let cups: Cups = block_on(res.json())?;
             self.cups = cups.cups;
-            self.cups.push("Custom Tracks".to_string());
+            self.cups.push("CUSTOM TRACKS".to_string());
         }
         Ok(&self.cups)
     }
@@ -96,17 +96,8 @@ impl BeetleRank {
         Ok(data)
     }
 
-    pub fn get_tracks(&mut self, cup: String) -> Result<Vec<String>> {
+    pub fn get_tracks(&mut self, cup: &String) -> Result<Vec<String>> {
         let tracks = self.tracks.entry(cup.clone()).or_insert_with(||{
-            if cup == "Custom Tracks".to_string() {
-                let paths = fs::read_dir("data/custom_courses").unwrap();
-                return paths.into_iter().map(|p| {
-                    let path = p.unwrap().path();
-                    let mut components = path.components();
-                    components.next();
-                    components.as_path().display().to_string()
-                }).collect_vec();
-            }
             let client = reqwest::Client::builder().use_rustls_tls().build().expect("Failed to build client");
             let url = format!("https://www.beetlerank.com/api/maps/{}", cup);
             let res = block_on(client.get(url).send()).expect("Failed to get tracks from beetlerank");

@@ -41,6 +41,7 @@ impl TimePosition {
 }
 
 pub struct RaceContext {
+    pub selected_cup: Option<String>,
     pub selected_course: Option<Course>,
     pub current_checkpoint: usize,
     pub start_time: Instant,
@@ -59,6 +60,7 @@ impl RaceContext {
 
     pub fn new(data: GW2Data) -> RaceContext {
         RaceContext {
+            selected_cup: None,
             selected_course: None,
             current_checkpoint: 0usize,
             start_time: Instant::now(),
@@ -72,8 +74,8 @@ impl RaceContext {
     }
 
     pub fn load_course(&mut self, track: &String) -> Result<()> {
-        std::fs::create_dir_all("data/maps")?;
-        let filepath = format!("data/maps/{}.csv", track);
+        std::fs::create_dir_all("data/courses")?;
+        let filepath = format!("data/courses/{}.csv", track);
         if Path::new(&filepath).is_file() {
             self.selected_course = Some(Course::from_reader(track, &mut csv::Reader::from_path(&filepath)?)?);
             return Ok(())
@@ -201,7 +203,8 @@ impl RaceContext {
         let duration = self.filtered_time();
         let distance = self.filtered_distance();
         // (distance * 866.18 / (duration as f32)) as i32
-        (distance * 546.8 / duration as f32) as i32
+        (distance * 100000f32 / (16625f32 / 100f32)  / (duration as f32)) as i32
+        // (distance * 546.8 / duration as f32) as i32
     }
 
     // ----- PRIVATE METHODS -----
