@@ -380,6 +380,7 @@ fn speedometer(ctx: &mut RaceContext, beetlerank: &mut BeetleRank, pb: &Option<R
             let cpdelta = dur.saturating_sub(*ctx.checkpoint_times.get(idx-1).unwrap_or(&Duration::new(0,0)));
             let mut delta: String = String::new();
             if let Some(lap) = pb {
+                // BUG: since the pb is updated immediately, then reloaded immediately, the delta will suddenly be 00:00:000 when finishing a lap with a new best time
                 if let Some(split) = lap.splits.pb.get(idx-1) {
                     if *split > cpdelta.as_millis() as u64 {
                         delta = format!("-{}", Duration::from_millis(split.saturating_sub(cpdelta.as_millis() as u64)).timestamp())
