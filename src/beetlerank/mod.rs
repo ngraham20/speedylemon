@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, path::Path};
+use std::{collections::HashMap, fs, hash::Hash, path::Path};
 use itertools::Itertools;
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
@@ -70,6 +70,7 @@ impl BeetleRank {
             let res = block_on(client.get(url).send())?;
             let cups: Cups = block_on(res.json())?;
             self.cups = cups.cups;
+            self.cups.push("CUSTOM TRACKS".to_string());
         }
         Ok(&self.cups)
     }
@@ -95,7 +96,7 @@ impl BeetleRank {
         Ok(data)
     }
 
-    pub fn get_tracks(&mut self, cup: String) -> Result<Vec<String>> {
+    pub fn get_tracks(&mut self, cup: &String) -> Result<Vec<String>> {
         let tracks = self.tracks.entry(cup.clone()).or_insert_with(||{
             let client = reqwest::Client::builder().use_rustls_tls().build().expect("Failed to build client");
             let url = format!("https://www.beetlerank.com/api/maps/{}", cup);

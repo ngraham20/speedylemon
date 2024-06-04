@@ -3,7 +3,6 @@ use std::{collections::VecDeque, path::Path, time::{Duration, Instant}};
 use checkpoint::Checkpoint;
 use course::Course;
 use guild_wars_handler::GW2Data;
-use racer::Racer;
 use util::euclidian_distance_3d;
 
 use anyhow::Result;
@@ -41,31 +40,33 @@ impl TimePosition {
     }
 }
 
-pub struct LemonContext {
-    pub course: Option<Course>,
+pub struct RaceContext {
+    pub selected_cup: Option<String>,
+    pub selected_course: Option<Course>,
     pub current_checkpoint: usize,
     pub start_time: Instant,
     pub checkpoint_times: Vec<Duration>,
     pub race_state: RaceState,
 
-    events: (TimePosition, TimePosition),
+    instants: (TimePosition, TimePosition),
     distance_queue: VecDeque<f32>,
     time_queue: VecDeque<u128>,
     gw2_data: GW2Data,
 }
 
-impl LemonContext {
+impl RaceContext {
 
     // ----- PUBLIC METHODS -----
 
-    pub fn new(data: GW2Data) -> LemonContext {
-        LemonContext {
-            course: None,
+    pub fn new(data: GW2Data) -> RaceContext {
+        RaceContext {
+            selected_cup: None,
+            selected_course: None,
             current_checkpoint: 0usize,
             start_time: Instant::now(),
             checkpoint_times: Vec::new(),
             race_state: RaceState::WaitingToStart,
-            events: (TimePosition::new(), TimePosition::new()),
+            instants: (TimePosition::new(), TimePosition::new()),
             distance_queue: VecDeque::from(vec![0f32, 0f32]),
             time_queue: VecDeque::from(vec![0u128, 0u128]),
             gw2_data: data,
@@ -73,16 +74,16 @@ impl LemonContext {
     }
 
     pub fn load_course(&mut self, track: &String) -> Result<()> {
-        std::fs::create_dir_all("data/maps")?;
-        let filepath = format!("data/maps/{}.csv", track);
+        std::fs::create_dir_all("data/courses")?;
+        let filepath = format!("data/courses/{}.csv", track);
         if Path::new(&filepath).is_file() {
-            self.course = Some(Course::from_reader(track, &mut csv::Reader::from_path(&filepath)?)?);
+            self.selected_course = Some(Course::from_reader(track, &mut csv::Reader::from_path(&filepath)?)?);
             return Ok(())
         }
         let data = BeetleRank::get_course(&track)?;
         let course = Course::from_reader(track, &mut csv::Reader::from_reader(data.as_bytes()))?;
-        course.export_to_path(filepath)?;
-        self.course = Some(course);
+        course.export(filepath)?;
+        self.selected_course = Some(course);
         Ok(())
     }
 
@@ -115,13 +116,13 @@ impl LemonContext {
     }
 
     pub fn peek_current_checkpoint(&self) -> Checkpoint {
-        self.course.as_ref().unwrap().checkpoints[self.current_checkpoint]
+        self.selected_course.as_ref().unwrap().checkpoints[self.current_checkpoint]
     }
 
     pub fn update_state(&mut self) {
         self.race_state = match self.current_checkpoint {
             0 => RaceState::WaitingToStart,
-            cp if cp < self.course.as_ref().unwrap().checkpoints.len() => RaceState::Racing ,
+            cp if cp < self.selected_course.as_ref().unwrap().checkpoints.len() => RaceState::Racing ,
             _ => RaceState::Finished,
         }
     }
@@ -138,7 +139,7 @@ impl LemonContext {
     }
 
     pub fn is_in_current_checkpoint(&self) -> bool {
-        if self.current_checkpoint < self.course.as_ref().unwrap().checkpoints.len() {
+        if self.current_checkpoint < self.selected_course.as_ref().unwrap().checkpoints.len() {
             if self.current_cp_distance() < self.peek_current_checkpoint().radius as f32 {
                 return true
             }
@@ -148,7 +149,7 @@ impl LemonContext {
     }
 
     pub fn is_in_reset_checkpoint(&self) -> bool {
-        if let (Some(dst), Some(cp)) = (self.reset_cp_distance(), self.course.as_ref().unwrap().reset) {
+        if let (Some(dst), Some(cp)) = (self.reset_cp_distance(), self.selected_course.as_ref().unwrap().reset) {
             if dst < cp.radius as f32 {
                 return true
             }
@@ -158,12 +159,12 @@ impl LemonContext {
     }
 
     pub fn current_cp_distance(&self) -> f32 {
-        let checkpoint = &self.course.as_ref().unwrap().checkpoints[self.current_checkpoint];
+        let checkpoint = &self.selected_course.as_ref().unwrap().checkpoints[self.current_checkpoint];
         euclidian_distance_3d(&self.gw2_data.racer.position, &checkpoint.point())
     }
 
     pub fn reset_cp_distance(&self) -> Option<f32> {
-        if let Some(reset) = &self.course.as_ref().unwrap().reset {
+        if let Some(reset) = &self.selected_course.as_ref().unwrap().reset {
             return Some(euclidian_distance_3d(&self.gw2_data.racer.position, &reset.point()))
         }
 
@@ -172,8 +173,8 @@ impl LemonContext {
 
     pub fn update(&mut self) -> Result<()> {
         self.gw2_data.update()?;
-        self.events.0 = self.events.1;
-        self.events.1 = TimePosition {
+        self.instants.0 = self.instants.1;
+        self.instants.1 = TimePosition {
             time: Instant::now(),
             position: self.gw2_data.racer.position,
         };
@@ -202,7 +203,8 @@ impl LemonContext {
         let duration = self.filtered_time();
         let distance = self.filtered_distance();
         // (distance * 866.18 / (duration as f32)) as i32
-        (distance * 546.8 / duration as f32) as i32
+        (distance * 100000f32 / (16625f32 / 100f32)  / (duration as f32)) as i32
+        // (distance * 546.8 / duration as f32) as i32
     }
 
     // ----- PRIVATE METHODS -----
@@ -216,11 +218,11 @@ impl LemonContext {
     }
 
     fn dist_per_poll(&self) -> f32 {
-        euclidian_distance_3d(&self.events.0.position, &self.events.1.position)
+        euclidian_distance_3d(&self.instants.0.position, &self.instants.1.position)
     }
 
     fn time_per_poll(&self) -> u128 {
-        self.events.1.time.duration_since(self.events.0.time).as_millis()
+        self.instants.1.time.duration_since(self.instants.0.time).as_millis()
     }
 
     fn record_checkpoint_time(&mut self) {

@@ -1,9 +1,9 @@
-use std::{fs::{create_dir_all, File}, path::Path, io::Write, time::Duration};
+use std::{fs::create_dir_all, path::Path, time::Duration};
 
 use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
 
-use super::{checkpoint, util::{Exportable, Importable}};
+use super::util::{Exportable, Importable};
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct RaceLap {
@@ -81,7 +81,7 @@ pub fn calculate_pb(previous_data: &RaceLap, checkpoint_times: &Vec<Duration>) -
 }
 
 /// Updates the track data with new PB information if necessary
-pub fn update_track_data(checkpoint_times: &Vec<Duration>, path: String) -> Result<()> {
+pub fn update_track_data(checkpoint_times: &Vec<Duration>, path: String) -> Result<RaceLap> {
     let new_data;
     if let Some(previous_data) = RaceLap::import(&path)? {
         new_data = calculate_pb(&previous_data, &checkpoint_times);
@@ -92,7 +92,7 @@ pub fn update_track_data(checkpoint_times: &Vec<Duration>, path: String) -> Resu
         new_data = RaceLap::new(&checkpoint_times);
         new_data.export(path)?;
     }
-    Ok(())
+    Ok(new_data)
 }
 
 #[cfg(test)]

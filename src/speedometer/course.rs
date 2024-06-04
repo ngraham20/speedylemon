@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::{fs::File, io::Write};
 
 use super::checkpoint::Stepname;
@@ -20,6 +21,25 @@ impl Course {
             checkpoints: Vec::new(),
             reset: None,
         }
+    }
+
+    pub fn push_cp(&mut self, x: f32, y: f32, z: f32, radius: i32) {
+        let idx = self.checkpoints.len();
+        self.checkpoints.push(Checkpoint { step: idx as i16, stepname: Stepname::Checkpoint, x, y, z, radius })
+    }
+    pub fn add_reset(&mut self, x: f32, y: f32, z: f32, radius: i32) {
+        self.reset = Some(Checkpoint {
+            step: -1,
+            stepname: Stepname::Reset,
+            x, y, z,
+            radius,
+        });
+    }
+
+    pub fn from_path(path: &String) -> Result<Course> {
+        let mut reader = csv::Reader::from_path(&path)?;
+        let filename = Path::new(path).file_stem().unwrap().to_string_lossy().to_string();
+        Course::from_reader(&filename, &mut reader)
     }
 
     pub fn from_reader<T: std::io::Read>(track: &String, reader: &mut csv::Reader<T>) -> Result<Course> {
@@ -45,7 +65,7 @@ impl Course {
         Ok(course)
     }
     
-    pub fn export_to_path(&self, path: String) -> Result<()> {
+    pub fn export(&self, path: String) -> Result<()> {
         let mut writer = csv::Writer::from_writer(vec![]);
 
         if let Some(cp) = &self.reset {
