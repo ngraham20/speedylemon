@@ -137,7 +137,7 @@ pub fn run() -> Result<()> {
                 speed: ctx.filtered_speed() as f32,
                 cam_angle: 0.0,
                 beetle_angle: 0.0,
-                timestamp: ctx.start_time.elapsed().as_millis() as f64,
+                timestamp: ctx.start_time.elapsed().as_millis() as f64 / 1000f64,
                 acceleration: 0.0,
                 map_angle: 0.0,
             });
@@ -163,8 +163,12 @@ pub fn run() -> Result<()> {
                     RaceState::Finished => {
                         // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
                         let now_utc = Utc::now();
-                        race_log.export(String::from(format!("./data/logs/{}-{}.csv", ctx.selected_course.as_ref().unwrap().name, now_utc))).context("Failed to export race log")?;
+                        race_log.export(String::from(format!("./data/logs/{}-{}.csv", ctx.selected_course.as_ref().unwrap().name, ctx.checkpoint_times.last().unwrap().as_millis()))).context("Failed to export race log")?;
                         pb = Some(update_track_data(&ctx.checkpoint_times, String::from(format!("./data/splits/{}.toml", ctx.selected_course.as_ref().unwrap().name))).context("Failed to export splits")?);
+                        let beetlerank_best_time = (&beetlerank
+                            .get_top3(&ctx.selected_course.as_ref().unwrap().name, &ctx.racer_name())?
+                            .you.as_ref().unwrap()[1].laptime * 1000f64) as u64;
+                        let pb_laptime = &pb.clone().unwrap().pb_laptime;
                         // TODO: check to see if personal time is better than beetlerank's time for this track alert
                         // TODO: if it's better, push the new time and log
                         // TODO: now that we can make popup windows, change the finished view to be a popup
