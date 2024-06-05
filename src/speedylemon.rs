@@ -171,7 +171,6 @@ pub fn run() -> Result<()> {
                         if let Some(you) = &beetlerank.rankings[track].you {
                             let beetlerank_best_time = (you[1].laptime * 1000f64) as u64;
                             if latest_laptime < beetlerank_best_time {
-                                // TODO: upload to beetlerank
                                 upload_response = beetlerank.post_log(ctx.racer_name().clone(), track.clone(), logfilepath)?;
                             }
                         } else {
