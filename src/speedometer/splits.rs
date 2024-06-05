@@ -62,11 +62,7 @@ pub fn calculate_pb(previous_data: &RaceLap, checkpoint_times: &Vec<Duration>) -
     let mut new_data = previous_data.clone();
 
     let mut new_best_splits: Vec<u64> = Vec::new();
-
-    println!("Previous data: {:?}", previous_data.splits.best);
-    println!("Splits: {:?}", splits);
     for (a, b) in previous_data.splits.best.iter().zip(splits.iter()) {
-        println!("{}, {}", a, b);
         new_best_splits.push(u64::min(*a, *b));
     }
 

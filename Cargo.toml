@@ -16,7 +16,7 @@ log = { version = "0.4.20", features = ["release_max_level_off"]}
 mumblelink_reader = "0.3.5"
 pretty_env_logger = "0.5.0"
 ratatui = "0.24.0"
-reqwest = {version = "0.11.23", features = ["blocking", "json", "rustls-tls-native-roots"]}
+reqwest = {version = "0.11.23", features = ["blocking", "json", "rustls-tls-native-roots", "multipart"]}
 serde = { version = "1.0.192", features = ["derive"] }
 serde-aux = "4.3.1"
 serde_json = "1.0.108"

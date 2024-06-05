@@ -5,7 +5,7 @@ use crate::{beetlerank::BeetleRank, speedometer::{checkpoint::Stepname, util::{I
 use crossterm::event::{self, Event, KeyEventKind, KeyCode};
 use feotui::{Border, Padding, Render, StatefulScrollingList};
 use crate::speedometer::{splits::*, checkpoint::Checkpoint, course::Course, guild_wars_handler::{self}, racelog::RaceLogEntry, splits::update_track_data, util::Exportable, RaceContext, RaceState};
-use std::{fmt::Display, fs, path::Path, process::exit, time::{Duration, Instant}};
+use std::{fmt::Display, fs, path::Path, process::exit, time::{Duration, Instant, SystemTime, UNIX_EPOCH}};
 use feotui::Popup;
 use crate::DEBUG;
 use unicode_segmentation::UnicodeSegmentation;
@@ -103,7 +103,7 @@ Suspendisse quis velit eu felis bibendum imperdiet. Donec nisi purus, suscipit a
 }
 
 pub fn run() -> Result<()> {
-    feotui::init_terminal()?;
+    // feotui::init_terminal()?;
     let mut ctx = RaceContext::new(guild_wars_handler::GW2Data::new()?);
     // ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
     ctx.init_gw2_data()?;
@@ -116,6 +116,7 @@ pub fn run() -> Result<()> {
     let mut race_log: Vec<RaceLogEntry> = Vec::new();
     let mut old_racestate: RaceState;
     let mut creating_course: Course = Course::new();
+    let mut upload_response: Vec<String> = Vec::new();
 
     let mut trackselstate = TrackSelectorState::SelectCup;
 
@@ -161,19 +162,21 @@ pub fn run() -> Result<()> {
             if ctx.race_state != old_racestate {
                 match ctx.race_state {
                     RaceState::Finished => {
-                        // TODO: double check if the log has the final timestamp. If it doesn't, make sure to append it before exporting.
-                        let now_utc = Utc::now();
-                        race_log.export(String::from(format!("./data/logs/{}-{}.csv", ctx.selected_course.as_ref().unwrap().name, ctx.checkpoint_times.last().unwrap().as_millis()))).context("Failed to export race log")?;
-                        pb = Some(update_track_data(&ctx.checkpoint_times, String::from(format!("./data/splits/{}.toml", ctx.selected_course.as_ref().unwrap().name))).context("Failed to export splits")?);
-                        let beetlerank_best_time = (&beetlerank
-                            .get_top3(&ctx.selected_course.as_ref().unwrap().name, &ctx.racer_name())?
-                            .you.as_ref().unwrap()[1].laptime * 1000f64) as u64;
-                        let pb_laptime = &pb.clone().unwrap().pb_laptime;
-                        // TODO: check to see if personal time is better than beetlerank's time for this track alert
-                        // TODO: if it's better, push the new time and log
-                        // TODO: now that we can make popup windows, change the finished view to be a popup
-                        // TODO: also, pop up when better splits
-                        // TODO: also, pop up when new best time
+                        let track = &ctx.selected_course.clone().unwrap().name;
+                        let latest_laptime = ctx.checkpoint_times.last().unwrap().as_millis() as u64;
+                        let logfilepath = format!("./data/logs/{}_{}.csv", track, latest_laptime);
+                        race_log.export(String::from(&logfilepath)).context("Failed to export race log")?;
+                        let racelap = update_track_data(&ctx.checkpoint_times, String::from(format!("./data/splits/{}.toml", track))).context("Failed to export splits")?;
+                        pb = Some(racelap.clone());
+                        if let Some(you) = &beetlerank.rankings[track].you {
+                            let beetlerank_best_time = (you[1].laptime * 1000f64) as u64;
+                            if latest_laptime < beetlerank_best_time {
+                                // TODO: upload to beetlerank
+                                upload_response = beetlerank.post_log(ctx.racer_name().clone(), track.clone(), logfilepath)?;
+                            }
+                        } else {
+                            upload_response = beetlerank.post_log(ctx.racer_name().clone(), track.clone(), logfilepath)?;
+                        }
                     },
                     _ => {},
                 }
@@ -295,7 +298,7 @@ pub fn run() -> Result<()> {
                 println!("{}", match state {
                     ProgramState::Speedometer => {
                         match ctx.race_state {
-                            RaceState::Finished => primary_window.popup(&race_finished(&ctx, &mut beetlerank, &pb)?.pad(1).border(feotui::BorderStyle::Bold), 2, 2).render(),
+                            RaceState::Finished => primary_window.popup(&race_finished(&ctx, &mut beetlerank, &pb, &upload_response)?.pad(1).border(feotui::BorderStyle::Bold), 2, 2).render(),
                             _ => primary_window.render()
                         }
                     },
@@ -310,25 +313,29 @@ pub fn run() -> Result<()> {
         
     }
 
-    feotui::restore_terminal()?;
+    // feotui::restore_terminal()?;
     Ok(())
 }
 
-fn race_finished(ctx: &RaceContext, beetlerank: &mut BeetleRank, pb: &Option<RaceLap>) -> Result<Vec<String>> {
+fn race_finished(ctx: &RaceContext, beetlerank: &mut BeetleRank, pb: &Option<RaceLap>, upload_response: &Vec<String>) -> Result<Vec<String>> {
     let mut lines: Vec<String> = Vec::new();
+    let track = &ctx.selected_course.as_ref().unwrap().name;
     lines.push("Race Finished!".to_string());
     let laptime = ctx.checkpoint_times.last().unwrap();
     if ctx.selected_cup != Some("CUSTOM TRACKS".to_string()) {
-        let best_time = (&beetlerank
-            .get_top3(&ctx.selected_course.as_ref().unwrap().name, &ctx.racer_name())?
-            .you.as_ref().unwrap()[1].laptime * 1000f64) as u64;
-        lines.push(format!("Beetlerank Best Time: {}", Duration::from_millis(best_time).timestamp()));
+        if let Some(you) = &beetlerank.rankings[track].you {
+            let best_time = (you[1].laptime * 1000f64) as u64;
+            lines.push(format!("Beetlerank Best Time: {}", Duration::from_millis(best_time).timestamp()));
+        }
     }
     if let Some(rl) = pb {
         lines.push(format!("Local Best Time: {}", Duration::from_millis(rl.pb_laptime).timestamp()));
     }
     
     lines.push(format!("Lap Time: {}", laptime.timestamp()));
+    if *upload_response != Vec::<String>::new() {
+        lines.append(&mut upload_response.clone());
+    }
     Ok(lines)
 }
 
@@ -349,17 +356,25 @@ fn rank(ctx: &mut RaceContext, beetlerank: &mut BeetleRank) -> Result<Vec<String
     let mut lines: Vec<String> = Vec::new();
     let ranks = beetlerank.get_top3(&ctx.selected_course.as_ref().unwrap().name, &ctx.racer_name())?;
 
-    let local_ranks = ranks.you.as_ref().unwrap();
     let top_ranks = &ranks.top_3;
-    let local_timestamp_padding: usize = local_ranks.iter().map(|r| r.name.graphemes(true).count()).max().unwrap();
     let top_timestamp_padding: usize = top_ranks.iter().map(|r| r.name.graphemes(true).count()).max().unwrap();
-    let padding = usize::max(local_timestamp_padding, top_timestamp_padding);
-    for rank in top_ranks {
-        lines.push(format!("{: >2}: {: <padding$} {}", rank.rank, rank.name, rank.timestamp));
-    }
-    lines.push(format!("..."));
-    for rank in  local_ranks{
-        lines.push(format!("{: >2}: {: <padding$} {}", rank.rank, rank.name, rank.timestamp));
+
+    if let Some(you) = &ranks.you {
+        let local_timestamp_padding: usize = you.iter().map(|r| r.name.graphemes(true).count()).max().unwrap();
+        let padding = usize::max(local_timestamp_padding, top_timestamp_padding);
+
+        for rank in top_ranks {
+            lines.push(format!("{: >2}: {: <padding$} {}", rank.rank, rank.name, rank.timestamp));
+        }
+        lines.push(format!("..."));
+        for rank in you{
+            lines.push(format!("{: >2}: {: <padding$} {}", rank.rank, rank.name, rank.timestamp));
+        }
+
+    } else {
+        for rank in top_ranks{
+            lines.push(format!("{: >2}: {: <top_timestamp_padding$} {}", rank.rank, rank.name, rank.timestamp));
+        }
     }
     Ok(lines)
 }

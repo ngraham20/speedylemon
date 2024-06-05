@@ -50,19 +50,6 @@ impl BeetleRank {
         }
     }
 
-    pub fn mock() -> BeetleRank {
-        let mut tracks = HashMap::new();
-        tracks.insert(String::from("Cup 1"), vec!["C1T1", "C1T2", "C1T3"].iter().map(|s| s.to_string()).collect_vec());
-        tracks.insert(String::from("Cup 2"), vec!["C2T1", "C2T2", "C2T3"].iter().map(|s| s.to_string()).collect_vec());
-        tracks.insert(String::from("Cup 3"), vec!["C3T1", "C3T2", "C3T3"].iter().map(|s| s.to_string()).collect_vec());
-        tracks.insert(String::from("Cup 4"), vec!["C4T1", "C4T2", "C4T3"].iter().map(|s| s.to_string()).collect_vec());
-        BeetleRank {
-            cups: vec!["Cup 1", "Cup 2", "Cup 3", "Cup 4"]
-                .iter().map(|s| s.to_string()).collect_vec(),
-            tracks: HashMap::new(),
-            rankings: HashMap::new(),
-        }
-    }
     pub fn get_cups(&mut self) -> Result<&Vec<String>> {
         if self.cups.is_empty() {
             let client = reqwest::Client::builder().use_rustls_tls().build()?;
@@ -75,12 +62,31 @@ impl BeetleRank {
         Ok(&self.cups)
     }
 
+    pub fn post_log(&self, user: String, guildhall: String, file: String, ) -> Result<Vec<String>> {
+        let client = reqwest::Client::builder().use_rustls_tls().build()?;
+        let url = "https://www.beetlerank.com/upload-log";
+        let filepart = reqwest::multipart::Part::bytes(fs::read(file.clone()).unwrap())
+            .file_name(file);
+        let form = reqwest::multipart::Form::new()
+            .text("user", user)
+            .text("guildhall", guildhall)
+            .part("file", filepart);
+        let response_text = block_on(block_on(client.post(url).multipart(form).send())?.text())?.split("\n").into_iter().map(|s| s.to_string()).collect_vec();
+        println!("{:?}", response_text);
+        Ok(response_text)
+    }
+
     pub fn get_top3(&mut self, track: &String, user: &String) -> Result<&Ranking> {
         let ranking = self.rankings.entry(track.clone()).or_insert_with(|| {
             let client = reqwest::Client::builder().use_rustls_tls().build().expect("Failed to create builder");
             let url = format!("https://www.beetlerank.com/api/top3/{}/{}", track, user);
             let res = block_on(client.get(url).send()).expect("Failed to reach beetlerank");
-            let data: Ranking = block_on(res.json()).expect("Failed to parse JSON");
+            let mut data: Ranking = block_on(res.json()).expect("Failed to parse JSON");
+            if let Some(you) = &data.you {
+                if you[1].name != *user {
+                    data.you = None;
+                }
+            }
             data
         });
 
