@@ -219,7 +219,7 @@ pub fn run() -> Result<()> {
             if let None = &ctx.selected_course {
                 println!("{}", cup_window.pad(1).border(feotui::BorderStyle::Bold).render());
             } else {
-                let primary_window = speedometer(&mut ctx, &mut beetlerank, &pb)?.pad(1).border(feotui::BorderStyle::Bold);
+                let primary_window = speedometer(&mut ctx, &mut beetlerank, &pb, state)?.pad(1).border(feotui::BorderStyle::Bold);
                 println!("{}", match state {
                     ProgramState::Speedometer => {
                         match ctx.race_state {
@@ -304,11 +304,11 @@ fn rank(ctx: &mut RaceContext, beetlerank: &mut BeetleRank) -> Result<Vec<String
     Ok(lines)
 }
 
-fn speedometer(ctx: &mut RaceContext, beetlerank: &mut BeetleRank, pb: &Option<RaceLap>) -> Result<Vec<String>> {
+fn speedometer(ctx: &mut RaceContext, beetlerank: &mut BeetleRank, pb: &Option<RaceLap>, state: ProgramState) -> Result<Vec<String>> {
     let mut lines: Vec<String> = Vec::new();
     lines.push(format!("Track: {}", ctx.selected_course.as_ref().unwrap().name));
     
-    if ctx.selected_cup != Some("CUSTOM TRACKS".to_string()) {
+    if state == ProgramState::Speedometer && ctx.selected_cup != Some("CUSTOM TRACKS".to_string()) {
         lines.append(&mut rank(ctx, beetlerank)?);
     }
     
