@@ -334,6 +334,7 @@ name = "feotui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "colored",
  "crossterm",
  "unicode-segmentation",
 ]
@@ -1401,7 +1402,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
- "colored",
  "crossbeam-channel",
  "crossterm",
  "csv",

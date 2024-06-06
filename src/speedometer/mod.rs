@@ -50,7 +50,6 @@ pub struct RaceContext {
 
     instants: (TimePosition, TimePosition),
     distance_queue: VecDeque<f32>,
-    time_queue: VecDeque<u128>,
     gw2_data: GW2Data,
 }
 
@@ -68,7 +67,6 @@ impl RaceContext {
             race_state: RaceState::WaitingToStart,
             instants: (TimePosition::new(), TimePosition::new()),
             distance_queue: VecDeque::from(vec![0f32, 0f32]),
-            time_queue: VecDeque::from(vec![0u128, 0u128]),
             gw2_data: data,
         }
     }
@@ -179,12 +177,8 @@ impl RaceContext {
             position: self.gw2_data.racer.position,
         };
         self.distance_queue.push_back(self.dist_per_poll());
-        self.time_queue.push_back(self.time_per_poll());
         if self.distance_queue.len() > 5 {
             self.distance_queue.pop_front();
-        }
-        if self.time_queue.len() > 10 {
-            self.time_queue.pop_front();
         }
         Ok(())
     }
@@ -200,10 +194,11 @@ impl RaceContext {
     /// 
     /// Alternatively, 100000 / 115.45 = 866.18 will make the max speed 137 when drifting, which matches the speedometer
     pub fn filtered_speed(&self) -> i32 {
-        let duration = self.filtered_time();
+        // let duration = self.filtered_time();
+        let duration = 10u128;
         let distance = self.filtered_distance();
         // (distance * 866.18 / (duration as f32)) as i32
-        (distance * 100000f32 / (16625f32 / 100f32)  / (duration as f32)) as i32
+        (distance * 100000f32 / (18288f32 / 99f32)  / (duration as f32)) as i32
         // (distance * 546.8 / duration as f32) as i32
     }
 
@@ -211,10 +206,6 @@ impl RaceContext {
 
     fn filtered_distance(&self) -> f32 {
         *self.distance_queue.iter().max_by(|&a, &b| a.partial_cmp(b).unwrap()).unwrap()
-    }
-
-    fn filtered_time(&self) -> u128 {
-        *self.time_queue.iter().max().unwrap()
     }
 
     fn dist_per_poll(&self) -> f32 {

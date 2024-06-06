@@ -1,8 +1,7 @@
 use anyhow::{Result, Context};
-use chrono::Utc;
 use itertools::Itertools;
 use crate::{beetlerank::BeetleRank, speedometer::{checkpoint::Stepname, util::{Importable, Timestamp}}, track_selector::TrackSelectorState};
-use crossterm::event::{self, Event, KeyEventKind, KeyCode};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use feotui::{Border, Padding, Render, StatefulScrollingList};
 use crate::speedometer::{splits::*, checkpoint::Checkpoint, course::Course, guild_wars_handler::{self}, racelog::RaceLogEntry, splits::update_track_data, util::Exportable, RaceContext, RaceState};
 use std::{fmt::Display, fs, path::Path, time::{Duration, Instant}};
@@ -335,7 +334,6 @@ fn speedometer(ctx: &mut RaceContext, beetlerank: &mut BeetleRank, pb: &Option<R
                         delta = "".to_string();
                     }
                     else if *split > cpdelta.as_millis() as u64 {
-                        // BUG: The color is added in terminal escape codes. These codes are actually graphemes themselves, and therefore they affect the "length" of the string, even if it's not displayed. Padding is thrown off because of this
                         delta = format!("-{}", Duration::from_millis(split.saturating_sub(cpdelta.as_millis() as u64)).timestamp())
                     } else {
                         delta = format!("+{}", Duration::from_millis((cpdelta.as_millis() as u64).saturating_sub(*split)).timestamp())
