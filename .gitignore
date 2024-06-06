@@ -3,3 +3,4 @@ dev/
 .vscode/
 .envrc
 .direnv/
+data/
