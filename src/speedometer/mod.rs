@@ -1,13 +1,13 @@
 use std::{collections::VecDeque, path::Path, time::{Duration, Instant}};
 
+use beetlerank::BeetleRank;
 use checkpoint::Checkpoint;
 use course::Course;
+use csv::Reader;
 use guild_wars_handler::GW2Data;
 use util::euclidian_distance_3d;
 
 use anyhow::Result;
-
-use crate::beetlerank::BeetleRank;
 
 pub mod camera;
 pub mod checkpoint;
@@ -78,7 +78,7 @@ impl RaceContext {
             self.selected_course = Some(Course::from_reader(track, &mut csv::Reader::from_path(&filepath)?)?);
             return Ok(())
         }
-        let data = BeetleRank::get_course(&track)?;
+        let data = BeetleRank::get_checkpoints(&track)?;
         let course = Course::from_reader(track, &mut csv::Reader::from_reader(data.as_bytes()))?;
         course.export(filepath)?;
         self.selected_course = Some(course);

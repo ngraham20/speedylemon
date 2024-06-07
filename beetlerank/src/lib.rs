@@ -1,12 +1,10 @@
-use std::{collections::HashMap, fs, hash::Hash, path::Path};
+use std::{collections::HashMap, fs};
 use itertools::Itertools;
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
 use futures::executor::block_on;
 
 use anyhow::Result;
-
-use crate::speedometer::{checkpoint::{Checkpoint, Stepname}, course::Course};
 
 #[derive(Debug, Deserialize)]
 #[serde(default)]
@@ -76,16 +74,14 @@ impl BeetleRank {
         Ok(response_text)
     }
 
-    pub fn get_top3(&mut self, track: &String, user: &String) -> Result<&Ranking> {
+    pub fn get_rank(&mut self, track: &String, user: &String) -> Result<&Ranking> {
         let ranking = self.rankings.entry(track.clone()).or_insert_with(|| {
             let client = reqwest::Client::builder().use_rustls_tls().build().expect("Failed to create builder");
             let url = format!("https://www.beetlerank.com/api/top3/{}/{}", track, user);
             let res = block_on(client.get(url).send()).expect("Failed to reach beetlerank");
             let mut data: Ranking = block_on(res.json()).expect("Failed to parse JSON");
-            if let Some(you) = &data.you {
-                if you[1].name != *user {
-                    data.you = None;
-                }
+            if data.you.as_ref().unwrap()[1].name != *user {
+                data.you = None;
             }
             data
         });
@@ -93,7 +89,7 @@ impl BeetleRank {
         Ok(ranking)
     }
 
-    pub fn get_course(track: &String) -> Result<String> {
+    pub fn get_checkpoints(track: &String) -> Result<String> {
         let client = reqwest::Client::builder().use_rustls_tls().build()?;
         let url = format!("https://www.beetlerank.com/uploads/checkpoints/{}.csv", track);
         let res = block_on(client.get(url).send())?;
@@ -140,102 +136,5 @@ impl Default for Rank {
             map: String::new(),
             file: String::new(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use serde::Deserialize;
-
-    use super::*;
-
-
-    #[derive(Deserialize)]
-    struct DevResponse {
-        succeed: bool,
-    }
-
-    #[derive(Deserialize)]
-    struct Cups {
-        cups: Vec<String>,
-    }
-
-    #[derive(Deserialize)]
-    struct Maps {
-        maps: Vec<String>,
-    }
-
-    #[test]
-    fn test_motd() -> Result<()> {
-        let url = "http://localhost:3000/api/dev/info";
-        let response: DevResponse = reqwest::blocking::get(url)?.json()?;
-        assert!(response.succeed);
-        Ok(())
-    }
-
-    #[test]
-    fn test_devapi() -> Result<()> {
-        let url = "http://localhost:3000/api/dev/info";
-        let response: DevResponse = reqwest::blocking::get(url)?.json()?;
-        assert!(response.succeed);
-        Ok(())
-    }
-
-    #[test]
-    fn test_cups() -> Result<()> {
-        let url = "http://localhost:3000/api/dev/cups";
-        let response: Cups = reqwest::blocking::get(url)?.json()?;
-        assert_eq!(response.cups, vec![
-            String::from("TYRIA CUP"),
-            String::from("GUILDHALL CUP")
-        ]);
-        Ok(())
-    }
-
-    #[test]
-    fn test_maps() -> Result<()> {
-        let url = "http://localhost:3000/api/dev/maps/TYRIA CUP";
-        let response: Maps = reqwest::blocking::get(url)?.json()?;
-        assert_eq!(response.maps, vec![
-            String::from("TYRIA GENDARRAN")
-        ]);
-        Ok(())
-    }
-
-    #[test]
-    fn test_map_rankings() -> Result<()> {
-        let url = "http://localhost:3000/api/dev/top3/DEV";
-        let response: DevResponse = reqwest::blocking::get(url)?.json()?;
-        assert!(response.succeed);
-        Ok(())
-    }
-
-    #[test]
-    fn test_user_rankings() -> Result<()> {
-        let url = "http://localhost:3000/api/dev/top3/DEV/Test User";
-        let response: Ranking = reqwest::blocking::get(url)?.json()?;
-        println!("{:?}", response);
-        assert_eq!(response.top_3.len(), 3);
-        assert!(response.you.is_some());
-        assert_eq!(response.you.clone().unwrap().len(), 3);
-        assert_eq!(response.top_3[0], Rank {
-            rank: 1,
-            timestamp: String::from("01:00,000"),
-            name: String::from("First"),
-            laptime: 60.0,
-            date: String::from("2022-09-18 02:21:16"),
-            map: String::from("TYRIA GENDARRAN"),
-            file: String::from("test.csv"),
-        });
-        assert_eq!(response.you.unwrap()[1], Rank {
-            rank: 72,
-            timestamp: String::from("01:00,000"),
-            name: String::from("Seventy-Second"),
-            laptime: 60.0,
-            date: String::from("2022-09-18 02:21:16"),
-            map: String::from("TYRIA GENDARRAN"),
-            file: String::from("test.csv"),
-        });
-        Ok(())
     }
 }

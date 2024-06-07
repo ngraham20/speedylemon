@@ -1,6 +1,7 @@
 use anyhow::{Result, Context};
+use beetlerank::BeetleRank;
 use itertools::Itertools;
-use crate::{beetlerank::BeetleRank, speedometer::{checkpoint::Stepname, util::{Importable, Timestamp}}, track_selector::TrackSelectorState};
+use crate::{speedometer::{checkpoint::Stepname, util::{Importable, Timestamp}}, track_selector::TrackSelectorState};
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use feotui::{Border, Padding, Render, StatefulScrollingList};
 use crate::speedometer::{splits::*, checkpoint::Checkpoint, course::Course, guild_wars_handler::{self}, racelog::RaceLogEntry, splits::update_track_data, util::Exportable, RaceContext, RaceState};
@@ -94,13 +95,15 @@ pub fn run() -> Result<()> {
                         race_log.export(String::from(&logfilepath)).context("Failed to export race log")?;
                         let racelap = update_track_data(&ctx.checkpoint_times, String::from(format!("./data/splits/{}.toml", track))).context("Failed to export splits")?;
                         pb = Some(racelap.clone());
-                        if let Some(you) = &beetlerank.rankings[track].you {
-                            let beetlerank_best_time = (you[1].laptime * 1000f64) as u64;
-                            if latest_laptime < beetlerank_best_time {
+                        if *ctx.selected_cup.as_ref().unwrap() != "CUSTOM TRACKS".to_string() {
+                            if let Some(you) = &beetlerank.rankings[track].you {
+                                let beetlerank_best_time = (you[1].laptime * 1000f64) as u64;
+                                if latest_laptime < beetlerank_best_time {
+                                    upload_response = beetlerank.post_log(ctx.racer_name().clone(), track.clone(), logfilepath)?;
+                                }
+                            } else {
                                 upload_response = beetlerank.post_log(ctx.racer_name().clone(), track.clone(), logfilepath)?;
                             }
-                        } else {
-                            upload_response = beetlerank.post_log(ctx.racer_name().clone(), track.clone(), logfilepath)?;
                         }
                     },
                     _ => {},
@@ -279,7 +282,7 @@ fn track_creator(course: &Course) -> Vec<String> {
 
 fn rank(ctx: &mut RaceContext, beetlerank: &mut BeetleRank) -> Result<Vec<String>> {
     let mut lines: Vec<String> = Vec::new();
-    let ranks = beetlerank.get_top3(&ctx.selected_course.as_ref().unwrap().name, &ctx.racer_name())?;
+    let ranks = beetlerank.get_rank(&ctx.selected_course.as_ref().unwrap().name, &ctx.racer_name())?;
 
     let top_ranks = &ranks.top_3;
     let top_timestamp_padding: usize = top_ranks.iter().map(|r| r.name.graphemes(true).count()).max().unwrap();
