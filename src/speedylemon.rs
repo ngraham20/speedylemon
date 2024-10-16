@@ -90,6 +90,17 @@ pub fn run() -> Result<()> {
             if ctx.race_state != old_racestate {
                 match ctx.race_state {
                     RaceState::Finished => {
+                        race_log.push(RaceLogEntry {
+                            x: ctx.x(),
+                            y: ctx.y(),
+                            z: ctx.z(),
+                            speed: ctx.filtered_speed() as f32,
+                            cam_angle: 0.0,
+                            beetle_angle: 0.0,
+                            timestamp: ctx.start_time.elapsed().as_millis() as f64 / 1000f64,
+                            acceleration: 0.0,
+                            map_angle: 0.0,
+                        });
                         let track = &ctx.selected_course.clone().unwrap().name;
                         let latest_laptime = ctx.checkpoint_times.last().unwrap().as_millis() as u64;
                         let logfilepath = format!("./data/logs/{}_{}.csv", track, latest_laptime);
@@ -320,6 +331,10 @@ fn speedometer(ctx: &mut RaceContext, beetlerank: &mut BeetleRank, pb: &Option<R
         }));
     lines.push(format!("Distance to reset checkpoint: {:.4}", ctx.reset_cp_distance().unwrap_or(-1.0)));
     lines.push(format!("Speed: {:?}", ctx.filtered_speed()));
+    if let Some(rl) = pb {
+        lines.push(format!("Personal Best: {}", Duration::from_millis(rl.pb_laptime).timestamp()));
+        // lines.push(format!("Sum of Best: {}", Duration::from_millis(rl.)))
+    }
     if let Some(c) = &ctx.selected_course {
         lines.push("----- Checkpoint Times -----".to_string());
         for idx in 1..c.checkpoints.len() {

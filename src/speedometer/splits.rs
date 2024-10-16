@@ -52,7 +52,7 @@ impl Exportable for RaceLap {
 }
 
 fn splits(checkpoints: &Vec<Duration>) -> Vec<u64> {
-    checkpoints[1..].iter().enumerate().map(|(idx, split)| split.saturating_sub(checkpoints[idx]).as_millis() as u64).collect()
+    checkpoints[1..].iter().enumerate().map(|(idx, split)| split.as_millis().saturating_sub(checkpoints[idx].as_millis()) as u64).collect()
 }
 
 pub fn calculate_pb(previous_data: &RaceLap, checkpoint_times: &Vec<Duration>) -> RaceLap {
