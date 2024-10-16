@@ -56,7 +56,7 @@ pub fn run() -> Result<()> {
     while state != ProgramState::Quit {
         ctx.update().context(format!("Failed to update SpeedyLemon Context Object"))?;
 
-        if last_log.elapsed() >= log_delta {
+        if last_log.elapsed() >= log_delta && ctx.race_state == RaceState::Racing {
             last_log = Instant::now();
             race_log.push(RaceLogEntry {
                 x: ctx.x(),
@@ -75,6 +75,7 @@ pub fn run() -> Result<()> {
             // restart course if needed
             if ctx.is_in_reset_checkpoint() {
                 ctx.restart_course();
+                race_log = Vec::new();
             }
             
             // collect checkpoint if needed
@@ -96,14 +97,7 @@ pub fn run() -> Result<()> {
                         let racelap = update_track_data(&ctx.checkpoint_times, String::from(format!("./data/splits/{}.toml", track))).context("Failed to export splits")?;
                         pb = Some(racelap.clone());
                         if *ctx.selected_cup.as_ref().unwrap() != "CUSTOM TRACKS".to_string() {
-                            if let Some(you) = &beetlerank.rankings[track].you {
-                                let beetlerank_best_time = (you[1].laptime * 1000f64) as u64;
-                                if latest_laptime < beetlerank_best_time {
-                                    upload_response = beetlerank.post_log(ctx.racer_name().clone(), track.clone(), logfilepath)?;
-                                }
-                            } else {
-                                upload_response = beetlerank.post_log(ctx.racer_name().clone(), track.clone(), logfilepath)?;
-                            }
+                            upload_response = beetlerank.post_log(ctx.racer_name().clone(), track.clone(), logfilepath)?;
                         }
                     },
                     _ => {},
@@ -118,7 +112,10 @@ pub fn run() -> Result<()> {
                     match key.code {
                         KeyCode::Char('q') => state = ProgramState::Quit,
                         KeyCode::Char('r') => { match state {
-                            ProgramState::Speedometer => ctx.restart_course(),
+                            ProgramState::Speedometer => {
+                                ctx.restart_course();
+                                race_log = Vec::new();
+                            },
                             ProgramState::TrackCreator => { 
                                 creating_course.checkpoints = Vec::new();
                                 creating_course.reset = None;
