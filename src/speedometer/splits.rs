@@ -14,7 +14,7 @@ pub struct RaceLap {
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct Splits {
     pub pb: Vec<u64>,
-    best: Vec<u64>,
+    pub best: Vec<u64>,
 }
 
 impl RaceLap {

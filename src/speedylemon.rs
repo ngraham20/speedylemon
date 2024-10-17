@@ -32,7 +32,6 @@ impl Display for ProgramState {
 pub fn run() -> Result<()> {
     feotui::init_terminal()?;
     let mut ctx = RaceContext::new(guild_wars_handler::GW2Data::new()?);
-    // ctx.course = Course::from_path(String::from("maps/TYRIACUP/TYRIA DIESSA PLATEAU.csv"))?;
     ctx.init_gw2_data()?;
     let tick_rate = Duration::from_millis(10);
     let log_delta = Duration::from_millis(30);
@@ -333,7 +332,7 @@ fn speedometer(ctx: &mut RaceContext, beetlerank: &mut BeetleRank, pb: &Option<R
     lines.push(format!("Speed: {:?}", ctx.filtered_speed()));
     if let Some(rl) = pb {
         lines.push(format!("Personal Best: {}", Duration::from_millis(rl.pb_laptime).timestamp()));
-        // lines.push(format!("Sum of Best: {}", Duration::from_millis(rl.)))
+        lines.push(format!("Sum of Best: {}", Duration::from_millis(rl.splits.best.iter().sum()).timestamp()))
     }
     if let Some(c) = &ctx.selected_course {
         lines.push("----- Checkpoint Times -----".to_string());
