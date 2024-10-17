@@ -17,6 +17,7 @@ The racer's speed is displayed for you to understand how your racing is actually
 The split times are the original reason I decided to take on this project. It's extremely helpful to know how long each individual checkpoint took you to complete, because maybe that 00:02 seconds that you're trying to make up are all coming from one checkpoint, and you don't have to perfect the whole track yet!
 
 The timer also functions fairly well for Jumping Puzzles!
+
 ![Clock Tower](assets/clock-tower.png)
 
 ## Select Cups and Tracks from beetlerank
