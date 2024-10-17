@@ -21,6 +21,7 @@ The timer also functions fairly well for Jumping Puzzles!
 
 ## Select Cups and Tracks from beetlerank
 ![cup selector](assets/cup-selector.png)
+
 This idea comes straight from [LiveSplit](http://livesplit.org/), a tool that **speedrunners** use to keep track of individual segments of a run and not just the final time.
 
 ## Record and upload racer personal best lap times to https://beetlerank.com
@@ -30,6 +31,7 @@ Beetlerank keeps track of a **huge** amount of data, thanks to the work of the o
 
 ## Custom Track Creator
 ![track creator](assets/track-creator.png)
+
 # How does this even work?
 ## Keeping track of checkpoints
 The **checkpoints** that the speedometer keeps track of are not tied to the ones that exist in Guild Wars 2. Instead, the speedometer keeps track of its own checkpoints and simply tests whether the player's position is near the next checkpoint. This means that not only can we keep track of lap times for ArenaNet's in-game races, but it means we can make our own and still record lap times!
