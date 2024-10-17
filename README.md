@@ -12,8 +12,15 @@ Originally, this wasn't actually intended to be a speedometer! I wanted to write
 The racer's speed is displayed for you to understand how your racing is actually affecting your speed. Did you hit a bump and it felt like you lost some speed? Maybe you did! Now you'll know for sure.
 
 ## Track checkpoint times and splits
+![Infernal Leap](assets/infernal-leap.png)
+
 The split times are the original reason I decided to take on this project. It's extremely helpful to know how long each individual checkpoint took you to complete, because maybe that 00:02 seconds that you're trying to make up are all coming from one checkpoint, and you don't have to perfect the whole track yet!
 
+The timer also functions fairly well for Jumping Puzzles!
+![Clock Tower](assets/clock-tower.png)
+
+## Select Cups and Tracks from beetlerank
+![cup selector](assets/cup-selector.png)
 This idea comes straight from [LiveSplit](http://livesplit.org/), a tool that **speedrunners** use to keep track of individual segments of a run and not just the final time.
 
 ## Record and upload racer personal best lap times to https://beetlerank.com
@@ -21,6 +28,8 @@ What kind of tracker would this be if you couldn't tell if you beat your best ti
 
 Beetlerank keeps track of a **huge** amount of data, thanks to the work of the original speedometer's creator, [killer514tv](https://github.com/killer415tv0). Seriously, go donate a coffee to that guy, his work's incredible.
 
+## Custom Track Creator
+![track creator](assets/track-creator.png)
 # How does this even work?
 ## Keeping track of checkpoints
 The **checkpoints** that the speedometer keeps track of are not tied to the ones that exist in Guild Wars 2. Instead, the speedometer keeps track of its own checkpoints and simply tests whether the player's position is near the next checkpoint. This means that not only can we keep track of lap times for ArenaNet's in-game races, but it means we can make our own and still record lap times!
