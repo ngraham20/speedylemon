@@ -7,7 +7,15 @@ Designed off of https://github.com/killer415tv/gw2_speedometer as a base
 # Why the re-write?
 Originally, this wasn't actually intended to be a speedometer! I wanted to write a LiveSplit-like system that could track checkpoints individually and inform me which checkpoints I was having trouble with. I tried adding that functionality to Killer's original speedometer, but I've always enjoyed re-inventing the wheel, so here we are! The original speedometer written in python and is fairly complex. It could use a bit of a tune-up and code re-organization so that new features can more easily be added. Time for Rust!
 
+# Some limitations
+- SpeedyLemon cannot render an overlay for ghosts or checkpoints (Linux more or less prohibits this functionality on a core level)
+- I haven't implemented a Graphical User Interface (GUI) yet, but it is planned
+- I don't intend on implementing multiplayer like the original does
+
 # Features
+## Run SpeedyLemon on Linux
+Unlike the original, SpeedyLemon does run on Linux! I haven't figured out how to get the original to run on Linux, but if you figure it out, let me know, and I'll happily update that info here!
+
 ## Display racer speed
 The racer's speed is displayed for you to understand how your racing is actually affecting your speed. Did you hit a bump and it felt like you lost some speed? Maybe you did! Now you'll know for sure.
 
