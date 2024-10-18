@@ -5,7 +5,7 @@ use checkpoint::Checkpoint;
 use course::Course;
 use csv::Reader;
 use guild_wars_handler::GW2Data;
-use util::euclidian_distance_3d;
+use util::{euclidian_distance_2d, euclidian_distance_3d};
 
 use anyhow::Result;
 
@@ -215,7 +215,7 @@ impl RaceContext {
     }
 
     fn dist_per_poll(&self) -> f32 {
-        euclidian_distance_3d(&self.instants.0.position, &self.instants.1.position)
+        euclidian_distance_2d(&self.instants.0.position, &self.instants.1.position)
     }
 
     fn time_per_poll(&self) -> u128 {
