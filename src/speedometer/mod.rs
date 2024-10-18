@@ -195,10 +195,16 @@ impl RaceContext {
     /// Alternatively, 100000 / 115.45 = 866.18 will make the max speed 137 when drifting, which matches the speedometer
     pub fn filtered_speed(&self) -> i32 {
         // let duration = self.filtered_time();
-        let duration = 10u128;
+        let duration = 10f32;
         let distance = self.filtered_distance();
         // (distance * 866.18 / (duration as f32)) as i32
-        (distance * 100000f32 / (18288f32 / 99f32)  / (duration as f32)) as i32
+        // (distance * 100000f32 / (18288f32 / 99f32)  / (duration as f32)) as i32
+        // (distance * 9866f32 / (duration as f32)) as i32
+        (distance * 10000f32 * (2940f32/2987f32) * (99f32 / 1800f32) / duration) as i32
+        // ((distance * 9866f32 * 99f32 / 1800f32) / (duration)) as i32
+        // (distance * 100000f32 / (18000f32 / 99f32)  / (duration as f32)) as i32
+        // 298 * x = 294
+        // x = 294/298
         // (distance * 546.8 / duration as f32) as i32
     }
 
