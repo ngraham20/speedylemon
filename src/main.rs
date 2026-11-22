@@ -8,8 +8,8 @@ use std::cell::Cell;
 
 thread_local!(static DEBUG: Cell<bool> = Cell::new(false));
 
-#[tokio::main]
-async fn main() {
+//#[tokio::main]
+fn main() {
     pretty_env_logger::init();
 
     if let Err(err) = speedylemon::run() {

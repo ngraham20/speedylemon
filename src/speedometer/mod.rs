@@ -71,14 +71,14 @@ impl RaceContext {
         }
     }
 
-    pub fn load_course(&mut self, track: &String) -> Result<()> {
+    pub fn load_course(&mut self, beetlerank: &BeetleRank, track: &String) -> Result<()> {
         std::fs::create_dir_all("data/courses")?;
         let filepath = format!("data/courses/{}.csv", track);
         if Path::new(&filepath).is_file() {
             self.selected_course = Some(Course::from_reader(track, &mut csv::Reader::from_path(&filepath)?)?);
             return Ok(())
         }
-        let data = BeetleRank::get_checkpoints(&track)?;
+        let data = beetlerank.get_checkpoints(&track)?;
         let course = Course::from_reader(track, &mut csv::Reader::from_reader(data.as_bytes()))?;
         course.export(filepath)?;
         self.selected_course = Some(course);

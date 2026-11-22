@@ -2,7 +2,6 @@ use std::{collections::HashMap, fs};
 use itertools::Itertools;
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
-use futures::executor::block_on;
 
 use anyhow::Result;
 
@@ -27,6 +26,7 @@ pub struct BeetleRank {
     pub cups: Vec<String>,
     pub tracks: HashMap<String, Vec<String>>,
     pub rankings: HashMap<String, Ranking>,
+    pub client: reqwest::Client,
 }
 
 #[derive(Deserialize)]
@@ -45,23 +45,24 @@ impl BeetleRank {
             cups: Vec::new(),
             tracks: HashMap::new(),
             rankings: HashMap::new(),
+            client: reqwest::Client::builder().use_rustls_tls().build().expect("Failed to build https client"),
         }
     }
 
-    pub fn get_cups(&mut self) -> Result<&Vec<String>> {
+    #[tokio::main]
+    pub async fn get_cups(&mut self) -> Result<&Vec<String>> {
         if self.cups.is_empty() {
-            let client = reqwest::Client::builder().use_rustls_tls().build()?;
             let url = "https://www.beetlerank.com/api/cups";
-            let res = block_on(client.get(url).send())?;
-            let cups: Cups = block_on(res.json())?;
+            let res = (self.client.get(url).send().await)?;
+            let cups: Cups = (res.json().await)?;
             self.cups = cups.cups;
             self.cups.push("CUSTOM TRACKS".to_string());
         }
         Ok(&self.cups)
     }
 
-    pub fn post_log(&self, user: String, guildhall: String, file: String, ) -> Result<Vec<String>> {
-        let client = reqwest::Client::builder().use_rustls_tls().build()?;
+    #[tokio::main]
+    pub async fn post_log(&self, user: String, guildhall: String, file: String, ) -> Result<Vec<String>> {
         let url = "https://www.beetlerank.com/upload-log";
         let filepart = reqwest::multipart::Part::bytes(fs::read(file.clone()).unwrap())
             .file_name(file);
@@ -69,41 +70,38 @@ impl BeetleRank {
             .text("user", user)
             .text("guildhall", guildhall)
             .part("file", filepart);
-        let response_text = block_on(block_on(client.post(url).multipart(form).send())?.text())?.split("\n").into_iter().map(|s| s.to_string()).collect_vec();
+        let response_text = ((self.client.post(url).multipart(form).send().await)?.text().await)?.split("\n").into_iter().map(|s| s.to_string()).collect_vec();
         println!("{:?}", response_text);
         Ok(response_text)
     }
 
-    pub fn get_rank(&mut self, track: &String, user: &String) -> Result<&Ranking> {
-        let ranking = self.rankings.entry(track.clone()).or_insert_with(|| {
-            let client = reqwest::Client::builder().use_rustls_tls().build().expect("Failed to create builder");
-            let url = format!("https://www.beetlerank.com/api/top3/{}/{}", track, user);
-            let res = block_on(client.get(url).send()).expect("Failed to reach beetlerank");
-            let mut data: Ranking = block_on(res.json()).expect("Failed to parse JSON");
-            if data.you.as_ref().unwrap()[1].name != *user {
-                data.you = None;
-            }
-            data
-        });
+    #[tokio::main]
+    pub async fn get_rank(&mut self, track: &String, user: &String) -> Result<&mut Ranking> {
+        let url = format!("https://www.beetlerank.com/api/top3/{}/{}", track, user);
+        let res = (self.client.get(&url).send().await)?;
+        let mut data: Ranking = res.json().await.expect("Failed to parse JSON");
+        if data.you.as_ref().unwrap()[1].name != *user {
+            data.you = None;
+        }
 
-        Ok(ranking)
+        Ok(self.rankings.entry(track.clone()).or_insert_with(||data))
     }
-
-    pub fn get_checkpoints(track: &String) -> Result<String> {
-        let client = reqwest::Client::builder().use_rustls_tls().build()?;
+    #[tokio::main]
+    pub async fn get_checkpoints(&self, track: &String) -> Result<String> {
         let url = format!("https://www.beetlerank.com/uploads/checkpoints/{}.csv", track);
-        let res = block_on(client.get(url).send())?;
-        let data = block_on(res.text())?;
+        let res = (self.client.get(url).send().await)?;
+        let data = (res.text().await)?;
 
         Ok(data)
     }
 
-    pub fn get_tracks(&mut self, cup: &String) -> Result<Vec<String>> {
+    #[tokio::main]
+    pub async fn get_tracks(&mut self, cup: &String) -> Result<Vec<String>> {
+        let url = format!("https://www.beetlerank.com/api/maps/{}", cup);
+        let res = self.client.get(url).send().await.expect("Failed to get tracks from beetlerank");
+        let tracks: Tracks = res.json().await.expect("Failed to deserialize json object");
+
         let tracks = self.tracks.entry(cup.clone()).or_insert_with(||{
-            let client = reqwest::Client::builder().use_rustls_tls().build().expect("Failed to build client");
-            let url = format!("https://www.beetlerank.com/api/maps/{}", cup);
-            let res = block_on(client.get(url).send()).expect("Failed to get tracks from beetlerank");
-            let tracks: Tracks = block_on(res.json()).expect("Failed to deserialize json object");
             tracks.maps
         });
         Ok(tracks.clone())
