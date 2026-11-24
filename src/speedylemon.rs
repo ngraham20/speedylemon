@@ -195,7 +195,7 @@ pub fn run() -> Result<()> {
                                 trackselstate = TrackSelectorState::SelectTrack;
                             },
                             TrackSelectorState::SelectTrack => {
-                                ctx.load_course(&selected)?;
+                                ctx.load_course(&beetlerank, &selected)?;
                                 std::fs::create_dir_all("data/splits")?;
                                 pb = RaceLap::import(&format!("data/splits/{}.toml", selected))?;                         
                                 state = ProgramState::Speedometer;
